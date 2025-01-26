@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
+from typing import Optional
 
 class ArticleBase(BaseModel):
     title: str
@@ -14,3 +15,7 @@ class ArticleResponse(ArticleBase):
 
     class Config:
         from_attributes = True
+
+class ArticleUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None

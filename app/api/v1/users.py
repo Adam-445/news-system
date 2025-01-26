@@ -1,0 +1,97 @@
+from typing import List, Optional
+from app.db.database import get_db
+from fastapi import APIRouter, Depends, status, HTTPException
+from sqlalchemy.orm import Session
+import app.schemas as schemas
+from app.crud.users import UserService
+from uuid import UUID
+
+router = APIRouter()
+
+
+@router.get("/", response_model=List[schemas.UserResponse])
+def get_users(
+    limit: int = 10,
+    skip: int = 0,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch all users from the database.
+    """
+    return UserService.get_all_users(db)
+
+
+@router.post(
+    "/", status_code=status.HTTP_201_CREATED, response_model=schemas.UserResponse
+)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    """
+    Register a new user.
+    """
+    new_user = UserService.create_user(db, user)
+    if not new_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with this email or username already exists.",
+        )
+    return new_user
+
+
+# @router.get("/{id}", response_model=schemas.UserResponse)
+# def get_user(id: UUID, db: Session = Depends(get_db)):
+#     """
+#     Fetch a single user by ID.
+#     """
+#     user = UserService.get_user_by_id(db, id)
+#     if not user:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail=f"User with id {id} was not found.",
+#         )
+#     return user
+
+
+@router.get("/search", response_model=List[schemas.UserResponse])
+def search_users(
+    id: Optional[UUID] = None,
+    email: Optional[str] = None,
+    username: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Search users by ID, email or username.
+    """
+    if not any([id, username, email]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one search parameter must be provided",
+        )
+    return UserService.search_users(db, id=id, email=email, username=username)
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(id: UUID, db: Session = Depends(get_db)):
+    """
+    Delete a user by ID.
+    """
+    if not UserService.delete_user(db, id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {id} was not found.",
+        )
+
+
+@router.patch("/{id}", response_model=schemas.UserResponse)
+def update_user(id: UUID, new_user: schemas.UserUpdate, db: Session = Depends(get_db)):
+    """
+    Update an existing user by ID.
+    """
+    updated_user = UserService.update_user(db, id, new_user)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {id} was not found.",
+        )
+    return updated_user

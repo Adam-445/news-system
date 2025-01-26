@@ -1,5 +1,5 @@
 from .article import Article
-# from .user import User
+from .user import User
 # from .category import Category
 
 # Expose them as part of the modes model
