@@ -18,7 +18,7 @@ app = FastAPI(
 )
 
 # Include API routers
-# app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(articles.router, prefix="/api/v1/articles", tags=["Articles"])
 

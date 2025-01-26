@@ -1,9 +1,10 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from uuid import UUID
 from app.db import models
 from app.schemas import UserCreate
-from uuid import UUID
+from app.core import security
 
 
 class UserService:
@@ -26,6 +27,8 @@ class UserService:
     @staticmethod
     def create_user(db: Session, user_data: UserCreate) -> models.User:
         try:
+            hashed_password = security.get_password_hash(user_data.password)
+            user_data.password = hashed_password
             user = models.User(**user_data.model_dump())
             db.add(user)
             db.commit()
@@ -34,10 +37,6 @@ class UserService:
         except IntegrityError:
             db.rollback()
             return None
-
-    @staticmethod
-    def get_user_by_id(db: Session, user_id: UUID) -> models.User:
-        return db.query(models.User).filter(models.User.id == user_id).first()
 
     @staticmethod
     def search_users(
@@ -50,9 +49,9 @@ class UserService:
         if id:
             query = query.filter(models.User.id == id)
         if email:
-            query = query.filter(models.User.email == email)
+            query = query.filter(models.User.email.ilike(email))
         if username:
-            query = query.filter(models.User.username.contains(username))
+            query = query.filter(models.User.username.ilike(f"%{username}%"))
         return query.all()
 
     @staticmethod
@@ -81,6 +80,8 @@ class UserService:
 
         updated_fields = new_data.model_dump(exclude_unset=True)
         for field, value in updated_fields.items():
+            if field == "password":
+                value = security.get_password_hash(value)
             setattr(user, field, value)
 
         db.commit()

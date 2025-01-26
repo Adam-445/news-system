@@ -23,36 +23,6 @@ def get_users(
     return UserService.get_all_users(db)
 
 
-@router.post(
-    "/", status_code=status.HTTP_201_CREATED, response_model=schemas.UserResponse
-)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    """
-    Register a new user.
-    """
-    new_user = UserService.create_user(db, user)
-    if not new_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"User with this email or username already exists.",
-        )
-    return new_user
-
-
-# @router.get("/{id}", response_model=schemas.UserResponse)
-# def get_user(id: UUID, db: Session = Depends(get_db)):
-#     """
-#     Fetch a single user by ID.
-#     """
-#     user = UserService.get_user_by_id(db, id)
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f"User with id {id} was not found.",
-#         )
-#     return user
-
-
 @router.get("/search", response_model=List[schemas.UserResponse])
 def search_users(
     id: Optional[UUID] = None,
@@ -77,6 +47,17 @@ def delete_user(id: UUID, db: Session = Depends(get_db)):
     Delete a user by ID.
     """
     if not UserService.delete_user(db, id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {id} was not found.",
+        )
+
+@router.patch("/undelete/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def undelete_user(id: UUID, db: Session = Depends(get_db)):
+    """
+    Undelete a user by ID.
+    """
+    if not UserService.undelete_user(db, id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User with id {id} was not found.",

@@ -49,7 +49,7 @@ def delete_article(id: int, db: Session = Depends(get_db)):
         )
 
 
-@router.put("/{id}", response_model=schemas.ArticleResponse)
+@router.patch("/{id}", response_model=schemas.ArticleResponse)
 def update_article(id: int, new_article: schemas.ArticleUpdate, db: Session = Depends(get_db)):
     """
     Update an existing article by ID.

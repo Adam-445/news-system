@@ -11,6 +11,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: UUID4
+    is_active: bool
     created_at: datetime
 
     class Config:
@@ -20,3 +21,10 @@ class UserUpdate(UserBase):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
