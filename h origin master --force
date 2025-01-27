@@ -1,0 +1,9 @@
+[33mdb06c26[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m almost deleted everything by accident and got a heart attack
+[33mc83c283[m Added preferences and cleaned thing up a bit, need to fix scraping
+[33m16732ed[m Added scraping and tweaked some things, most things arent permenant tho
+[33m243cb23[m Added security related stuff and login and possibly fixed some bug
+[33mbbff277[m Added users, crud.py and fixed up the structure, going to work on security next
+[33mbe29fea[m removed .env from repo
+[33m42490ca[m added .env to gitignore
+[33m6097da3[m Added crud operation for articles
+[33mb817562[m Initial project structure

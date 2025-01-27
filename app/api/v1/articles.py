@@ -1,6 +1,6 @@
 from typing import List
 from app.db.database import get_db
-from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session
 import app.schemas as schemas
 from app.crud.articles import ArticleService
@@ -9,11 +9,15 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[schemas.ArticleResponse])
-def get_articles(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+def get_articles(
+    response: Response, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)
+):
     """
     Fetch articles with pagination support.
     """
-    return ArticleService.get_all_articles(db, skip=skip, limit=limit)
+    articles = ArticleService.get_all_articles(db, skip=skip, limit=limit)
+    # Should I add article count too?
+    return articles
 
 
 @router.post(

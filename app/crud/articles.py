@@ -7,15 +7,14 @@ from app.schemas import ArticleCreate
 from app.services.scraping import scrape_via_api
 
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class ArticleService:
     @staticmethod
     def get_all_articles(db: Session, skip: int = 0, limit: int = 10):
-        query = db.query(models.Article)
-        total_count = query.count()
-        articles = query.offset(skip).limit(limit).all()
-        return {"total_count": total_count, "articles": articles}
+        return query.offset(skip).limit(limit).all()
 
     @staticmethod
     def create_article(db: Session, article_data: ArticleCreate):
@@ -59,7 +58,10 @@ class ArticleService:
         except SQLAlchemyError as e:
             db.rollback()
             logger.error(f"Database error: {str(e)}")
-            raise HTTPException(status_code=500, detail="Could not create article. Please try again later.")
+            raise HTTPException(
+                status_code=500,
+                detail="Could not create article. Please try again later.",
+            )
 
     @staticmethod
     def get_article_by_id(db: Session, article_id: int):

@@ -25,5 +25,5 @@ class ArticleUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     category: Optional[str] = None
-    author: Optional[str] = None
+    # author: Optional[str] = None
     published_at: Optional[datetime] = None

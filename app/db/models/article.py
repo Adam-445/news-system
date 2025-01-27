@@ -17,7 +17,6 @@ class Article(Base):
     url = Column(String, nullable=False, unique=True) 
     published_at = Column(TIMESTAMP(timezone=True), nullable=True)  
     embedding = Column(JSONB, nullable=True)
-    embedding = Column(JSONB)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")
     )
