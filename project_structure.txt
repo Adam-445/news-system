@@ -52,3 +52,63 @@ news_recommendation/
 │-- alembic.ini                    # Alembic configuration file
 │-- README.md                      # Project documentation
 │-- .gitignore                      # Ignore files and folders
+---------------------------------------------------------------------------------------------
+Directory structure:
+└── adam-445-news-project/
+    ├── README.md
+    ├── Dockerfile
+    ├── alembic.ini
+    ├── docker-compose.yml
+    ├── project_structure.txt
+    ├── requirements.txt
+    ├── .gitignore~
+    ├── alembic/
+    │   ├── README
+    │   ├── env.py
+    │   ├── script.py.mako
+    │   └── versions/
+    │       ├── 136d72657ce3_add_articles_table.py
+    │       ├── 8e2eec88034b_add_is_active_to_users_to_soft_delete.py
+    │       └── 99fc2727a550_add_users_table.py
+    └── app/
+        ├── __init__.py
+        ├── main.py
+        ├── api/
+        │   ├── __init__.py
+        │   ├── dependencies.py
+        │   └── v1/
+        │       ├── __init__.py
+        │       ├── articles.py
+        │       ├── auth.py
+        │       └── users.py
+        ├── core/
+        │   ├── __init__.py
+        │   ├── config.py
+        │   ├── logging_a.py
+        │   ├── security.py
+        │   └── tasks.py
+        ├── crud/
+        │   ├── __init__.py
+        │   ├── articles.py
+        │   └── users.py
+        ├── db/
+        │   ├── __init__.py
+        │   ├── crud.py
+        │   ├── database.py
+        │   └── models/
+        │       ├── __init__.py
+        │       ├── article.py
+        │       ├── category.py
+        │       └── user.py
+        ├── schemas/
+        │   ├── __init__.py
+        │   ├── article.py
+        │   └── user.py
+        ├── services/
+        │   ├── __init__.py
+        │   ├── recommendation.py
+        │   └── scraping.py
+        └── tests/
+            ├── __init__.py
+            ├── test_articles.py
+            └── test_users.py

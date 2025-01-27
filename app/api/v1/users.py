@@ -76,3 +76,8 @@ def update_user(id: UUID, new_user: schemas.UserUpdate, db: Session = Depends(ge
             detail=f"User with id {id} was not found.",
         )
     return updated_user
+
+# @router.patch("/preferences", response_model=schemas.UserPreferenceResponse)
+# def update_preferences(prefs: schemas.UserPreferenceBase, user: User = Depends(get_current_user)):
+#     # TODO
+#     pass
