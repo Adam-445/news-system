@@ -1,9 +1,12 @@
 from typing import List, Optional
 from app.db.database import get_db
+from app.db import models
+from app.api.dependencies import get_current_user
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 import app.schemas as schemas
 from app.crud.users import UserService
+from app.crud.preference import PreferenceService
 from uuid import UUID
 
 router = APIRouter()
@@ -52,6 +55,7 @@ def delete_user(id: UUID, db: Session = Depends(get_db)):
             detail=f"User with id {id} was not found.",
         )
 
+
 @router.patch("/undelete/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def undelete_user(id: UUID, db: Session = Depends(get_db)):
     """
@@ -77,7 +81,18 @@ def update_user(id: UUID, new_user: schemas.UserUpdate, db: Session = Depends(ge
         )
     return updated_user
 
-# @router.patch("/preferences", response_model=schemas.UserPreferenceResponse)
-# def update_preferences(prefs: schemas.UserPreferenceBase, user: User = Depends(get_current_user)):
-#     # TODO
-#     pass
+
+@router.get("/preferences", response_model=schemas.UserPreferenceResponse)
+def get_preferences(
+    user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return PreferenceService.get_preferences(db, user.id)
+
+
+@router.patch("/preferences", response_model=schemas.UserPreferenceResponse)
+def update_preferences(
+    prefs: schemas.UserPreferenceUpdate,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return PreferenceService.update_preferences(db, user.id, prefs.model_dump())

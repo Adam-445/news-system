@@ -11,3 +11,6 @@ class UserPreferenceResponse(UserPreferenceBase):
 
     class Config:
         from_attributes = True
+
+class UserPreferenceUpdate(UserPreferenceBase):
+    pass

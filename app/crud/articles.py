@@ -6,23 +6,29 @@ from app.db import models
 from app.schemas import ArticleCreate
 from app.services.scraping import scrape_via_api
 
+import logging
+logger = logging.getLogger(__name__)
 
 class ArticleService:
     @staticmethod
     def get_all_articles(db: Session, skip: int = 0, limit: int = 10):
-        return db.query(models.Article).offset(skip).limit(limit).all()
+        query = db.query(models.Article)
+        total_count = query.count()
+        articles = query.offset(skip).limit(limit).all()
+        return {"total_count": total_count, "articles": articles}
 
     @staticmethod
     def create_article(db: Session, article_data: ArticleCreate):
         try:
-            article = models.Article(**article_data.model_dump())
-            db.add(article)
-            db.commit()
-            db.refresh(article)
+            with db.begin():
+                article = models.Article(**article_data.model_dump())
+                db.add(article)
+                db.commit()
+                db.refresh(article)
             return article
         except Exception as e:
             db.rollback()
-            return None
+            raise HTTPException(status_code=500, detail="Error creating article.")
 
     @staticmethod
     async def save_articles_to_db(db: Session):
@@ -49,12 +55,11 @@ class ArticleService:
         try:
             db.execute(stmt)
             db.commit()
-            # logger.info("Successfully saved %d new articles", len(new_articles))
+            logger.info("Successfully saved %d new articles", len(new_articles))
         except SQLAlchemyError as e:
             db.rollback()
-            # logger.error(f"Database error: {str(e)}")
-            raise HTTPException(
-                status_code=500, detail="Failed to save articles")
+            logger.error(f"Database error: {str(e)}")
+            raise HTTPException(status_code=500, detail="Could not create article. Please try again later.")
 
     @staticmethod
     def get_article_by_id(db: Session, article_id: int):
@@ -62,8 +67,7 @@ class ArticleService:
 
     @staticmethod
     def delete_article(db: Session, article_id: int) -> bool:
-        article = db.query(models.Article).filter(
-            models.Article.id == article_id)
+        article = db.query(models.Article).filter(models.Article.id == article_id)
         if not article.first():
             return False
         article.delete(synchronize_session=False)
@@ -73,8 +77,7 @@ class ArticleService:
     @staticmethod
     def update_article(db: Session, article_id: int, new_data: ArticleCreate):
         article = (
-            db.query(models.Article).filter(
-                models.Article.id == article_id).first()
+            db.query(models.Article).filter(models.Article.id == article_id).first()
         )
         if not article:
             return None

@@ -3,6 +3,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.db.database import Base
 
 class UserPreference(Base):
+    __tablename__ = "user_preferences"
+
     id = Column(Integer, primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     saved_articles = Column(JSON, default=[])

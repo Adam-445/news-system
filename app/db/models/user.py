@@ -17,5 +17,5 @@ class User(Base):
     password = Column(String, nullable=False)
     is_active = Column(Boolean, server_default="TRUE" ,nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()"))
-    # preferences = relationship("UserPreference", uselist=False)
+    preferences = relationship("UserPreference", uselist=False)
         

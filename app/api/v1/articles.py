@@ -25,7 +25,7 @@ def create_article(article: schemas.ArticleCreate, db: Session = Depends(get_db)
     """
     article = ArticleService.create_article(db, article)
     if not article:
-        raise HTTPException(status_code=500, detail=f"Error creating article: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating article.")
     return article
 
 
