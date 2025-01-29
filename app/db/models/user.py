@@ -11,9 +11,9 @@ import uuid
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    username = Column(String, unique=True, nullable=False, index=True)
-    email = Column(String, unique=True, nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    username = Column(String, nullable=False, unique=True, index=True)
+    email = Column(String, nullable=False, unique=True, index=True)
     password = Column(String, nullable=False)
     is_active = Column(Boolean, server_default="TRUE" ,nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()"))

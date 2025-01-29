@@ -1,25 +1,33 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, ConfigDict, field_validator
 from typing import Optional, List
+
 
 class ArticleBase(BaseModel):
     title: str
     content: str
-    source: Optional[str] = Field(None, example="CNN")
-    category: Optional[str] = Field(None, example="tech")
-    url: HttpUrl  # Ensure valid URL format
+    source: Optional[str] = None
+    category: Optional[str] = None
+    url: str
     published_at: Optional[datetime] = None
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url(cls, v):
+        return str(HttpUrl(v))
+
 
 class ArticleCreate(ArticleBase):
     pass
+
 
 class ArticleResponse(ArticleBase):
     id: int
     embedding: Optional[List[float]] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 class ArticleUpdate(BaseModel):
     title: Optional[str] = None

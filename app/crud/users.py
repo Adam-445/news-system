@@ -16,7 +16,7 @@ class UserService:
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> List[models.User]:
-        query = db.query(models.User)
+        query = db.query(models.User).filter(models.User.is_active)
         sort_column = getattr(models.User, sort_by, None)
         if sort_column:
             query = query.order_by(

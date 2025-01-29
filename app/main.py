@@ -9,7 +9,7 @@ from app.db.database import engine, Base  # Database initialization
 # Initialize logging
 # setup_logging()
 
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 # Create the FastAPI app
 app = FastAPI(
     title="News Recommendation System",

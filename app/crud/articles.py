@@ -14,20 +14,19 @@ logger = logging.getLogger(__name__)
 class ArticleService:
     @staticmethod
     def get_all_articles(db: Session, skip: int = 0, limit: int = 10):
-        return query.offset(skip).limit(limit).all()
+        return db.query(models.Article).offset(skip).limit(limit).all()
 
     @staticmethod
     def create_article(db: Session, article_data: ArticleCreate):
         try:
-            with db.begin():
-                article = models.Article(**article_data.model_dump())
-                db.add(article)
-                db.commit()
-                db.refresh(article)
+            article = models.Article(**article_data.model_dump())
+            db.add(article)
+            db.commit()
+            db.refresh(article)
             return article
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail="Error creating article.")
+            raise HTTPException(status_code=500, detail=f"Error creating article.")
 
     @staticmethod
     async def save_articles_to_db(db: Session):

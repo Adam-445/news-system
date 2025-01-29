@@ -14,7 +14,7 @@ class Article(Base):
     content = Column(String, nullable=False)
     source = Column(String)
     category = Column(String)
-    url = Column(String, nullable=False, unique=True) 
+    url = Column(String, nullable=False, unique=True, index=True)
     published_at = Column(TIMESTAMP(timezone=True), nullable=True)  
     embedding = Column(JSONB, nullable=True)
     created_at = Column(
