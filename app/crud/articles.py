@@ -14,10 +14,20 @@ logger = logging.getLogger(__name__)
 class ArticleService:
     @staticmethod
     def get_all_articles(db: Session, skip: int = 0, limit: int = 10):
-        return db.query(models.Article).offset(skip).limit(limit).all()
+        query = db.query(models.Article)
+        articles = query.offset(skip).limit(limit).all()
+        total_count = query.count()
+        return articles, total_count
 
     @staticmethod
     def create_article(db: Session, article_data: ArticleCreate):
+        existing = (
+            db.query(models.Article)
+            .filter(models.Article.url == article_data.url)
+            .first()
+        )
+        if existing:
+            raise HTTPException(status_code=409, detail="URL exists")
         try:
             article = models.Article(**article_data.model_dump())
             db.add(article)
@@ -46,10 +56,8 @@ class ArticleService:
         ]
 
         stmt = insert(models.Article).values(new_articles)
-        stmt = stmt.on_conflict_do_nothing(
-            index_elements=["url"]
-        )  # Avoid duplicates by URL
-
+        # Avoid duplicates by URL
+        stmt = stmt.on_conflict_do_nothing(index_elements=["url"])
         try:
             db.execute(stmt)
             db.commit()

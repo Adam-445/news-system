@@ -12,6 +12,10 @@ class UserCreate(UserBase):
     password: str
 
 
+class UserCreate(UserBase):
+    password: str
+
+
 class UserResponse(UserBase):
     id: UUID4
     is_active: bool

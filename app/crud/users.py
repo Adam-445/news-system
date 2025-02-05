@@ -29,7 +29,7 @@ class UserService:
         try:
             hashed_password = security.get_password_hash(user_data.password)
             user_data.password = hashed_password
-            user = models.User(**user_data.model_dump())
+            user = models.User(**user_data.model_dump(), role_name="regular")
             db.add(user)
             db.commit()
             db.refresh(user)

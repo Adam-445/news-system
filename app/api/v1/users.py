@@ -1,13 +1,14 @@
 from typing import List, Optional
-from app.db.database import get_db
-from app.db import models
-from app.api.dependencies import get_current_user
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
+from uuid import UUID
+
+from app.db.database import get_db
+from app.db import models
+from app.api.dependencies import required_roles, get_current_user
 import app.schemas as schemas
 from app.crud.users import UserService
 from app.crud.preference import PreferenceService
-from uuid import UUID
 
 router = APIRouter()
 
@@ -18,6 +19,7 @@ def get_users(
     skip: int = 0,
     sort_by: str = "created_at",
     order: str = "desc",
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -31,6 +33,7 @@ def search_users(
     id: Optional[UUID] = None,
     email: Optional[str] = None,
     username: Optional[str] = None,
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -45,7 +48,11 @@ def search_users(
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(id: UUID, db: Session = Depends(get_db)):
+def delete_user(
+    id: UUID,
+    current_user: models.User = Depends(required_roles(["admin"])),
+    db: Session = Depends(get_db),
+):
     """
     Delete a user by ID.
     """
@@ -57,7 +64,11 @@ def delete_user(id: UUID, db: Session = Depends(get_db)):
 
 
 @router.patch("/undelete/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def undelete_user(id: UUID, db: Session = Depends(get_db)):
+def undelete_user(
+    id: UUID,
+    current_user: models.User = Depends(required_roles(["admin"])),
+    db: Session = Depends(get_db),
+):
     """
     Undelete a user by ID.
     """
@@ -69,7 +80,12 @@ def undelete_user(id: UUID, db: Session = Depends(get_db)):
 
 
 @router.patch("/{id}", response_model=schemas.UserResponse)
-def update_user(id: UUID, new_user: schemas.UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    id: UUID,
+    new_user: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(required_roles(["admin", "moderator"])),
+):
     """
     Update an existing user by ID.
     """
@@ -84,7 +100,8 @@ def update_user(id: UUID, new_user: schemas.UserUpdate, db: Session = Depends(ge
 
 @router.get("/preferences", response_model=schemas.UserPreferenceResponse)
 def get_preferences(
-    user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     return PreferenceService.get_preferences(db, user.id)
 

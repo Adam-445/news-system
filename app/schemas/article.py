@@ -23,7 +23,6 @@ class ArticleCreate(ArticleBase):
 
 class ArticleResponse(ArticleBase):
     id: int
-    embedding: Optional[List[float]] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -33,5 +32,4 @@ class ArticleUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     category: Optional[str] = None
-    # author: Optional[str] = None
     published_at: Optional[datetime] = None

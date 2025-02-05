@@ -28,7 +28,7 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=schemas.Token)
-async def login(user_credentials: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(get_db),) -> schemas.Token:
+def login(user_credentials: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(get_db),) -> schemas.Token:
     user = (
         db.query(models.User)
         .filter(models.User.username == user_credentials.username)
@@ -44,7 +44,7 @@ async def login(user_credentials: Annotated[OAuth2PasswordRequestForm, Depends()
         )
 
     # create a token
-    access_token = security.create_access_token(data={"user_username": user.username})
+    access_token = security.create_access_token(data={"username": user.username})
 
     # return token
     return schemas.Token(access_token=access_token, token_type="bearer")

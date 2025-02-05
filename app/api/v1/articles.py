@@ -1,9 +1,12 @@
 from typing import List
-from app.db.database import get_db
 from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session
+
+from app.db.database import get_db
 import app.schemas as schemas
 from app.crud.articles import ArticleService
+from app.api.dependencies import get_current_user, required_roles
+from app.db import models
 
 router = APIRouter()
 
@@ -15,15 +18,21 @@ def get_articles(
     """
     Fetch articles with pagination support.
     """
-    articles = ArticleService.get_all_articles(db, skip=skip, limit=limit)
-    # Should I add article count too?
+    articles, article_count = ArticleService.get_all_articles(
+        db, skip=skip, limit=limit
+    )
+    response.headers["X-Total-Count"] = str(article_count)
     return articles
 
 
 @router.post(
     "/", status_code=status.HTTP_201_CREATED, response_model=schemas.ArticleResponse
 )
-def create_article(article: schemas.ArticleCreate, db: Session = Depends(get_db)):
+def create_article(
+    article: schemas.ArticleCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(required_roles(["admin", "moderator"])),
+):
     """
     Create a new article.
     """
@@ -33,16 +42,12 @@ def create_article(article: schemas.ArticleCreate, db: Session = Depends(get_db)
     return article
 
 
-@router.post("/scrape", status_code=status.HTTP_202_ACCEPTED)
-async def scrape_and_store_articles(
-    background_tasks: BackgroundTasks, db: Session = Depends(get_db)
-):
-    background_tasks.add_task(ArticleService.save_articles_to_db, db)
-    return {"message": "Scraping initiated. Articles will be stored shortly."}
-
-
 @router.get("/{id}", response_model=schemas.ArticleResponse)
-def get_article(id: int, db: Session = Depends(get_db)):
+def get_article(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Fetch a single article by ID.
     """
@@ -56,7 +61,11 @@ def get_article(id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_article(id: int, db: Session = Depends(get_db)):
+def delete_article(
+    id: int,
+    current_user: models.User = Depends(required_roles(["admin", "moderator"])),
+    db: Session = Depends(get_db),
+):
     """
     Delete an article by ID.
     """
@@ -69,7 +78,10 @@ def delete_article(id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{id}", response_model=schemas.ArticleResponse)
 def update_article(
-    id: int, new_article: schemas.ArticleUpdate, db: Session = Depends(get_db)
+    id: int,
+    new_article: schemas.ArticleUpdate,
+    current_user: models.User = Depends(required_roles(["admin", "moderator"])),
+    db: Session = Depends(get_db),
 ):
     """
     Update an existing article by ID.
@@ -81,3 +93,13 @@ def update_article(
             detail=f"Article with id {id} was not found.",
         )
     return updated_article
+
+
+@router.post("/scrape", status_code=status.HTTP_202_ACCEPTED)
+async def scrape_and_store_articles(
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(required_roles(["admin", "moderator"])),
+    db: Session = Depends(get_db),
+):
+    background_tasks.add_task(ArticleService.save_articles_to_db, db)
+    return {"message": "Scraping initiated. Articles will be stored shortly."}
