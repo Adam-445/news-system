@@ -1,29 +1,75 @@
-# Not sure about adding this
-# from fastapi import APIRouter, Depends, HTTPException, status
-# from sqlalchemy.orm import Session
-# from app.db.database import get_db
-# from app.db.models import Role
-# from app.schemas import RoleUpdate
-# from app.api.dependencies import required_roles
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from uuid import UUID
 
-# router = APIRouter()
+from app.db.database import get_db
+from app import schemas
+from app.api.dependencies import required_roles
+from app.db import models
+
+router = APIRouter()
+
+
+@router.put("/users/{user_id}/roles", response_model=schemas.UserResponse)
+async def update_user_roles(
+    user_id: UUID,
+    new_role: str,
+    current_user: models.User = Depends(required_roles(["admin"])),
+    db: Session = Depends(get_db),
+):
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    role = db.query(models.Role).filter(models.Role.name == new_role).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    user.role_name = new_role
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 # @router.put("/roles/{role_name}", response_model=RoleUpdate)
 # def update_role(
 #     role_name: str,
 #     role_update: RoleUpdate,
+#     current_user: models.User = Depends(required_roles(["admin"])),
 #     db: Session = Depends(get_db),
-#     current_user=Depends(required_roles(["admin"])),
 # ):
-#     role = db.query(Role).filter(Role.name == role_name).first()
+#     role = db.query(models.Role).filter(models.Role.name == role_name).first()
 #     if not role:
 #         raise HTTPException(
 #             status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
 #         )
-#     # Update fields
 #     if role_update.description is not None:
 #         role.description = role_update.description
 #     db.commit()
 #     db.refresh(role)
 #     return role
+
+
+@router.post("/roles/{role_name}/permissions")
+def add_permission_to_role(
+    role_name: str,
+    permission_name: str,
+    current_user: models.User = Depends(required_roles(["admin"])),
+    db: Session = Depends(get_db),
+):
+    role = db.query(models.Role).filter(models.Role.name == role_name).first()
+    permission = (
+        db.query(models.Permission)
+        .filter(models.Permission.name == permission_name)
+        .first()
+    )
+
+    if not role or not permission:
+        raise HTTPException(404, "Role or permission not found")
+
+    if permission not in role.permissions:
+        role.permissions.append(permission)
+        db.commit()
+
+    return {"message": "Permission added"}

@@ -13,6 +13,7 @@ SQLALCHEMY_DATABASE_URL = f"postgresql://{settings.database_username}:{settings.
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 @pytest.fixture(scope="function")
 def db():
     Base.metadata.create_all(bind=engine)
@@ -23,6 +24,7 @@ def db():
         db.close()
         Base.metadata.drop_all(bind=engine)
 
+
 @pytest.fixture(scope="function")
 def client(db):
     def override_get_db():
@@ -30,26 +32,60 @@ def client(db):
             yield db
         finally:
             db.close()
+
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()
 
+
 @pytest.fixture
-def test_user(client):
+def regular_user(client):
     user_data = {
-        "email": "test@example.com",
-        "username": "testuser",
-        "password": "TestPass123!"
+        "email": "regular@example.com",
+        "username": "regularuser",
+        "password": "TestPass123!",
     }
     response = client.post("/api/v1/auth/signup", json=user_data)
     return response.json()
 
 @pytest.fixture
-def auth_headers(client, test_user):
-    login_data = {
-        "username": "testuser",
-        "password": "TestPass123!"
-    }
+def regular_headers(client, regular_user):
+    login_data = {"username": "testuser", "password": "TestPass123!"}
     response = client.post("/api/v1/auth/login", data=login_data)
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def moderator_user(client):
+    user_data = {
+        "email": "moderator@example.com",
+        "username": "moderatoruser",
+        "password": "TestPass123!",
+    }
+    response = client.post("/api/v1/auth/signup", json=user_data)
+    return response.json()
+
+@pytest.fixture
+def moderator_headers(client, regular_user):
+    login_data = {"username": "testuser", "password": "TestPass123!"}
+    response = client.post("/api/v1/auth/login", data=login_data)
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture
+def admin_user(client):
+    user_data = {
+        "email": "test@example.com",
+        "username": "testuser",
+        "password": "TestPass123!",
+    }
+    response = client.post("/api/v1/auth/signup", json=user_data)
+    return response.json()
+
+@pytest.fixture
+def admin_headers(client, regular_user):
+    login_data = {"username": "testuser", "password": "TestPass123!"}
+    response = client.post("/api/v1/auth/login", data=login_data)
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+

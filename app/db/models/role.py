@@ -9,7 +9,7 @@ class Role(Base):
     description = Column(Text, nullable=True)
 
     permissions = relationship(
-        "Permission", secondary=role_permission, back_populates="roles"
+        "Permission", secondary=role_permission, back_populates="roles", lazy="joined"
     )
 
     users = relationship("User", back_populates="role")

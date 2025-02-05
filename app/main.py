@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.v1 import articles, users, auth  # Import API routers
+from app.api.v1 import articles, users, auth, admin  # Import API routers
 # from app.core.logging import setup_logging  # Custom logging setup
 # from app.db.database import init_db  # Database initialization
 from app.db.database import engine, Base  # Database initialization
@@ -21,6 +21,7 @@ app = FastAPI(
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(articles.router, prefix="/api/v1/articles", tags=["Articles"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 
 # # Event handlers for startup and shutdown

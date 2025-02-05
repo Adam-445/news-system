@@ -19,12 +19,9 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     token_data = verify_access_token(token, credentials_exception)
-    print(token_data.username)
-    print(db.query(models.User).filter(models.User.username == token_data.username))
     # Eager load the role for quicker checks:
     user = (
         db.query(models.User)
-        .options(joinedload(models.User.role).joinedload(models.Role.permissions))
         .filter(models.User.username == token_data.username)
         .first()
     )

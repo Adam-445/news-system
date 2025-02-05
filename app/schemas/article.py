@@ -11,8 +11,7 @@ class ArticleBase(BaseModel):
     url: str
     published_at: Optional[datetime] = None
 
-    @field_validator("url", mode="before")
-    @classmethod
+    @field_validator("url")
     def validate_url(cls, v):
         return str(HttpUrl(v))
 

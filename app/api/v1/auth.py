@@ -44,7 +44,7 @@ def login(user_credentials: Annotated[OAuth2PasswordRequestForm, Depends()], db:
         )
 
     # create a token
-    access_token = security.create_access_token(data={"username": user.username})
+    access_token = security.create_access_token(data={"username": user.username, "role": user.role.name})
 
     # return token
     return schemas.Token(access_token=access_token, token_type="bearer")
