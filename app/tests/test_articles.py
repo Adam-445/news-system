@@ -93,3 +93,31 @@ def test_scrape_articles_permissions(client, regular_headers, moderator_headers)
     # Moderator
     response = client.post("/api/v1/articles/scrape", headers=moderator_headers)
     assert response.status_code == status.HTTP_202_ACCEPTED
+
+
+def test_get_recommendations(client, regular_headers, admin_headers):
+    # Set user preferences
+    client.put(
+        "/api/v1/users/preferences",
+        json={"preferred_categories": ["Technology"], "preferred_sources": ["BBC"]},
+        headers=regular_headers,
+    )
+
+    # Create matching article
+    client.post(
+        "/api/v1/articles/",
+        json={
+            "title": "Test Tech",
+            "content": "Content",
+            "url": "https://bbc.com/tech",
+            "category": "Technology",
+            "source": "BBC"
+        },
+        headers=admin_headers,
+    )
+
+    # Fetch recommendations
+    response = client.get("/api/v1/articles/recommendations", headers=regular_headers)
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["category"] == "Technology"

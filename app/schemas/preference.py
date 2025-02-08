@@ -11,10 +11,10 @@ class UserPreferenceBase(BaseModel):
 
 
 class UserPreferenceResponse(UserPreferenceBase):
-    user_id: str
+    user_id: UUID
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserPreferenceUpdate(UserPreferenceBase):
-    user_id: UUID
+    pass

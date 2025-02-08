@@ -7,8 +7,10 @@ import app.schemas as schemas
 from app.crud.articles import ArticleService
 from app.api.dependencies import get_current_user, required_roles
 from app.db import models
+from app.services.recommendation import get_personalized_recommendation
 
 router = APIRouter()
+
 
 
 @router.get("/", response_model=List[schemas.ArticleResponse])
@@ -23,6 +25,15 @@ def get_articles(
     )
     response.headers["X-Total-Count"] = str(article_count)
     return articles
+
+@router.get("/recommendations", response_model=List[schemas.ArticleResponse])
+def get_recommendations(
+    current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """
+    Get personalized article recommendations based on the user's preferences.
+    """
+    return get_personalized_recommendation(db, current_user.id).all()
 
 
 @router.post(
@@ -103,3 +114,5 @@ async def scrape_and_store_articles(
 ):
     background_tasks.add_task(ArticleService.save_articles_to_db, db)
     return {"message": "Scraping initiated. Articles will be stored shortly."}
+
+
