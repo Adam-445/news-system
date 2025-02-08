@@ -13,7 +13,7 @@ router = APIRouter()
 @router.put("/users/{user_id}/roles", response_model=schemas.UserResponse)
 async def update_user_roles(
     user_id: UUID,
-    new_role: str,
+    new_role: schemas.RoleUpdate,
     current_user: models.User = Depends(required_roles(["admin"])),
     db: Session = Depends(get_db),
 ):
@@ -22,11 +22,11 @@ async def update_user_roles(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    role = db.query(models.Role).filter(models.Role.name == new_role).first()
+    role = db.query(models.Role).filter(models.Role.name == new_role.role).first()
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
 
-    user.role_name = new_role
+    user.role_name = new_role.role
     db.commit()
     db.refresh(user)
     return user

@@ -1,14 +1,15 @@
-def test_create_article(client, auth_headers):
+from fastapi import status
+
+
+def test_moderator_can_create_article(client, moderator_headers):
     article_data = {
-        "title": "Test Article",
-        "content": "This is a test article",
-        "url": "https://test.com",
-        "source": "Test News",
-        "category": "Technology",
+        "title": "Moderator Article",
+        "content": "Moderator content",
+        "url": "https://moderator.com",
     }
-
-    response = client.post("/api/v1/articles/", json=article_data, headers=auth_headers)
-
+    response = client.post(
+        "/api/v1/articles/", json=article_data, headers=moderator_headers
+    )
     assert response.status_code == 201
     data = response.json()
     assert data["title"] == article_data["title"]
@@ -16,27 +17,79 @@ def test_create_article(client, auth_headers):
     assert "created_at" in data
 
 
-def test_get_articles(client, auth_headers):
+def test_regular_user_cannot_create_article(client, regular_headers):
+    article_data = {
+        "title": "Regular User Article",
+        "content": "Regular content",
+        "url": "https://regular.com",
+    }
+    response = client.post(
+        "/api/v1/articles/", json=article_data, headers=regular_headers
+    )
+    assert response.status_code == 403
+
+
+def test_get_articles(client, moderator_headers, regular_headers):
     # Create test article first
     client.post(
         "/api/v1/articles/",
         json={"title": "Test", "content": "Content", "url": "https://test.com"},
-        headers=auth_headers,
+        headers=moderator_headers,
     )
 
-    response = client.get("/api/v1/articles/", headers=auth_headers)
+    response = client.get("/api/v1/articles/", headers=regular_headers)
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
     assert len(data) > 0
 
 
-# def test_unauthorized_article_access(client):
-#     response = client.get("/api/v1/articles/")
-#     assert response.status_code == 401
-#     assert "Not authenticated" in response.json()["detail"]
-
-def test_article_not_found(client, auth_headers):
-    response = client.get("/api/v1/articles/9999", headers=auth_headers)
+def test_article_not_found(client, regular_headers):
+    response = client.get("/api/v1/articles/9999", headers=regular_headers)
     assert response.status_code == 404
     assert "Article with id 9999" in response.json()["detail"]
+
+
+def test_admin_can_delete_article(client, admin_headers, moderator_headers):
+    # Create article
+    article = client.post(
+        "/api/v1/articles/",
+        json={"title": "Test", "content": "Content", "url": "https://test.com"},
+        headers=moderator_headers,
+    ).json()
+
+    # Delete as admin
+    response = client.delete(f"/api/v1/articles/{article['id']}", headers=admin_headers)
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+
+
+def test_article_pagination(client, moderator_headers):
+    # Create multiple articles
+    for i in range(15):
+        client.post(
+            "/api/v1/articles/",
+            json={
+                "title": f"Article {i}",
+                "content": "Content",
+                "url": f"https://test.com/{i}",
+            },
+            headers=moderator_headers,
+        )
+
+    response = client.get(
+        "/api/v1/articles/", params={"skip": 5, "limit": 5}, headers=moderator_headers
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert len(response.json()) == 5
+    assert "X-Total-Count" in response.headers
+    assert int(response.headers["X-Total-Count"]) == 15
+
+
+def test_scrape_articles_permissions(client, regular_headers, moderator_headers):
+    # Regular user
+    response = client.post("/api/v1/articles/scrape", headers=regular_headers)
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # Moderator
+    response = client.post("/api/v1/articles/scrape", headers=moderator_headers)
+    assert response.status_code == status.HTTP_202_ACCEPTED

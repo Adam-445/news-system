@@ -1,16 +1,19 @@
-# app/schemas/role.py
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 from app.schemas.permission import PermissionResponse
 
 
 class RoleBase(BaseModel):
-    name: str
+    role: str
     description: Optional[str] = None
 
 
 class RoleCreate(RoleBase):
     permissions: List[str] = []
+
+
+class RoleUpdate(RoleBase):
+    pass
 
 
 class RoleResponse(RoleBase):

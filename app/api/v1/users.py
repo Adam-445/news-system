@@ -101,15 +101,16 @@ def update_user(
 @router.get("/preferences", response_model=schemas.UserPreferenceResponse)
 def get_preferences(
     user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(required_roles(["admin", "moderator"])),
     db: Session = Depends(get_db),
 ):
     return PreferenceService.get_preferences(db, user.id)
 
 
-@router.patch("/preferences", response_model=schemas.UserPreferenceResponse)
+@router.patch("/preferences")
 def update_preferences(
     prefs: schemas.UserPreferenceUpdate,
-    user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(required_roles(["admin", "moderator"])),
     db: Session = Depends(get_db),
 ):
-    return PreferenceService.update_preferences(db, user.id, prefs.model_dump())
+    return PreferenceService.update_preferences(db, prefs.user_id, prefs.model_dump())
