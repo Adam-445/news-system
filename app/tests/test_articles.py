@@ -1,5 +1,23 @@
 from fastapi import status
 
+from app.db import models
+
+
+def _create_test_article(client, db, headers, title, category, source, views=0):
+    article = {
+        "title": title,
+        "content": "Content",
+        "url": f"https://{source}/{title}",
+        "category": category,
+        "source": source,
+    }
+    response = client.post("/api/v1/articles/", json=article, headers=headers)
+    # Manually set views (since the endpoint increments on GET)
+    db_article = db.query(models.Article).filter(models.Article.title == title).first()
+    db_article.views = views
+    db.commit()
+    return response.json()
+
 
 def test_moderator_can_create_article(client, moderator_headers):
     article_data = {
@@ -111,7 +129,7 @@ def test_get_recommendations(client, regular_headers, admin_headers):
             "content": "Content",
             "url": "https://bbc.com/tech",
             "category": "Technology",
-            "source": "BBC"
+            "source": "BBC",
         },
         headers=admin_headers,
     )
@@ -121,3 +139,26 @@ def test_get_recommendations(client, regular_headers, admin_headers):
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["category"] == "Technology"
+
+
+def test_empty_recommendations(client, regular_headers):
+    response = client.get("/api/v1/articles/recommendations", headers=regular_headers)
+    assert response.status_code == 200
+    assert len(response.json()) == 0
+
+def test_recommendations_prioritize_popularity(client, db, regular_headers, admin_headers):
+    # Set preferences
+    client.put(
+        "/api/v1/users/preferences",
+        json={"preferred_categories": ["Tech"], "preferred_sources": ["BBC"]},
+        headers=regular_headers,
+    )
+
+    # Create articles with varying views
+    _create_test_article(client, db, admin_headers, "Low Views", "Tech", "BBC", views=10)
+    _create_test_article(client, db, admin_headers, "High Views", "Tech", "BBC", views=100)
+
+    # Fetch recommendations
+    response = client.get("/api/v1/articles/recommendations", headers=regular_headers)
+    assert response.status_code == 200
+    assert response.json()[0]["title"] == "High Views"  # Most popular first

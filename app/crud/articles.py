@@ -17,7 +17,7 @@ class ArticleService:
         query = db.query(models.Article)
         articles = query.offset(skip).limit(limit).all()
         total_count = query.count()
-        return articles, total_count
+        return articles, str(total_count)
 
     @staticmethod
     def create_article(db: Session, article_data: ArticleCreate):
@@ -72,7 +72,14 @@ class ArticleService:
 
     @staticmethod
     def get_article_by_id(db: Session, article_id: int):
-        return db.query(models.Article).filter(models.Article.id == article_id).first()
+        article = (
+            db.query(models.Article).filter(models.Article.id == article_id).first()
+        )
+        if article:
+            article.views += 1
+            db.commit()
+            db.refresh(article)
+        return article
 
     @staticmethod
     def delete_article(db: Session, article_id: int) -> bool:

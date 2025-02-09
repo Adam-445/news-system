@@ -23,7 +23,7 @@ def get_articles(
     articles, article_count = ArticleService.get_all_articles(
         db, skip=skip, limit=limit
     )
-    response.headers["X-Total-Count"] = str(article_count)
+    response.headers["X-Total-Count"] = article_count
     return articles
 
 @router.get("/recommendations", response_model=List[schemas.ArticleResponse])

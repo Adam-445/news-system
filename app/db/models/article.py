@@ -16,6 +16,9 @@ class Article(Base):
     source = Column(String)
     category = Column(String)
     url = Column(String, nullable=False, unique=True)
+
+    views = Column(Integer, server_default="0", nullable=False)
+
     published_at = Column(TIMESTAMP(timezone=True), index=True, nullable=True)
     created_at = Column(
         TIMESTAMP(timezone=True),
