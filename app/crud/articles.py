@@ -1,9 +1,11 @@
+from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
+
 from app.db import models
-from app.schemas import ArticleCreate
+from app import schemas
 from app.services.scraping import scrape_via_api
 
 import logging
@@ -13,14 +15,52 @@ logger = logging.getLogger(__name__)
 
 class ArticleService:
     @staticmethod
-    def get_all_articles(db: Session, skip: int = 0, limit: int = 10):
+    def search_articles(
+        db: Session, filters: schemas.ArticleFilters, skip: int = 0, limit: int = 10
+    ):
+        category: str = filters.category
+        source: str = filters.source
+        keyword: str = filters.keyword
+        start_date: datetime = filters.start_date
+        end_date: datetime = filters.end_date
+        sort_by: str = filters.sort_by
+        order: str = filters.sort_by
+
         query = db.query(models.Article)
+
+        # Apply filters
+        if category:
+            query = query.filter(models.Article.category.ilike(f"%{category}%"))
+        if source:
+            query = query.filter(models.Article.source.ilike(f"%{source}%"))
+        if keyword:
+            query = query.filter(
+                models.Article.title.ilike(f"%{keyword}%")
+                | models.Article.content.ilike(f"%{keyword}%")
+            )
+        if start_date and end_date:
+            query = query.filter(
+                models.Article.published_at.between(start_date, end_date)
+            )
+        elif start_date:
+            query = query.filter(models.Article.published_at >= start_date)
+        elif end_date:
+            query = query.filter(models.Article.published_at <= end_date)
+
+        # Sorting
+        # Verify column existence
+        sort_column = getattr(models.Article, sort_by, None)
+        if sort_column:
+            query = query.order_by(
+                sort_column.desc() if order == "desc" else sort_column.asc()
+            )
+
         articles = query.offset(skip).limit(limit).all()
         total_count = query.count()
         return articles, str(total_count)
 
     @staticmethod
-    def create_article(db: Session, article_data: ArticleCreate):
+    def create_article(db: Session, article_data: schemas.ArticleCreate):
         existing = (
             db.query(models.Article)
             .filter(models.Article.url == article_data.url)
@@ -91,7 +131,7 @@ class ArticleService:
         return True
 
     @staticmethod
-    def update_article(db: Session, article_id: int, new_data: ArticleCreate):
+    def update_article(db: Session, article_id: int, new_data: schemas.ArticleCreate):
         article = (
             db.query(models.Article).filter(models.Article.id == article_id).first()
         )

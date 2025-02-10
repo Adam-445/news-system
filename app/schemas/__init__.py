@@ -1,4 +1,4 @@
-from .article import ArticleBase, ArticleCreate, ArticleResponse, ArticleUpdate
+from .article import ArticleBase, ArticleCreate, ArticleResponse, ArticleUpdate, ArticleFilters
 from .user import UserBase, UserCreate, UserResponse, UserUpdate, Token, TokenData
 from .preference import UserPreferenceResponse, UserPreferenceUpdate
 from .role import RoleCreate, RoleResponse, RoleUpdate
@@ -10,6 +10,7 @@ __all__ = [
     "ArticleBase",
     "ArticleResponse"
     "ArticleUpdate",
+    "ArticleFilters"
     "UserBase",
     "UserCreate",
     "UserResponse",

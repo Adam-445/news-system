@@ -68,19 +68,6 @@ def test_article_not_found(client, regular_headers):
     assert "Article with id 9999" in response.json()["detail"]
 
 
-def test_admin_can_delete_article(client, admin_headers, moderator_headers):
-    # Create article
-    article = client.post(
-        "/api/v1/articles/",
-        json={"title": "Test", "content": "Content", "url": "https://test.com"},
-        headers=moderator_headers,
-    ).json()
-
-    # Delete as admin
-    response = client.delete(f"/api/v1/articles/{article['id']}", headers=admin_headers)
-    assert response.status_code == status.HTTP_204_NO_CONTENT
-
-
 def test_article_pagination(client, moderator_headers):
     # Create multiple articles
     for i in range(15):
@@ -101,6 +88,55 @@ def test_article_pagination(client, moderator_headers):
     assert len(response.json()) == 5
     assert "X-Total-Count" in response.headers
     assert int(response.headers["X-Total-Count"]) == 15
+
+
+def test_filter_articles_by_category(client, moderator_headers):
+    # Create test articles
+    client.post(
+        "/api/v1/articles/",
+        json={
+            "title": "Tech Article",
+            "content": "AI breakthroughs",
+            "url": "https://tech.com/1",
+            "category": "Technology",
+        },
+        headers=moderator_headers,
+    )
+
+    client.post(
+        "/api/v1/articles/",
+        json={
+            "title": "Sports Article",
+            "content": "World Cup",
+            "url": "https://sports.com/1",
+            "category": "Sports",
+        },
+        headers=moderator_headers,
+    )
+
+    # Filter by category
+    response = client.get("/api/v1/articles/", params={"category": "Technology"})
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["category"] == "Technology"
+
+
+def test_full_text_search(client, moderator_headers):
+    client.post(
+        "/api/v1/articles/",
+        json={
+            "title": "Python Tutorial",
+            "content": "Learn Python programming",
+            "url": "https://python.org/1",
+            "category": "Education",
+        },
+        headers=moderator_headers,
+    )
+
+    response = client.get("/api/v1/articles/", params={"keyword": "Python"})
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert "Python" in response.json()[0]["title"]
 
 
 def test_scrape_articles_permissions(client, regular_headers, moderator_headers):
@@ -146,7 +182,10 @@ def test_empty_recommendations(client, regular_headers):
     assert response.status_code == 200
     assert len(response.json()) == 0
 
-def test_recommendations_prioritize_popularity(client, db, regular_headers, admin_headers):
+
+def test_recommendations_prioritize_popularity(
+    client, db, regular_headers, admin_headers
+):
     # Set preferences
     client.put(
         "/api/v1/users/preferences",
@@ -155,10 +194,27 @@ def test_recommendations_prioritize_popularity(client, db, regular_headers, admi
     )
 
     # Create articles with varying views
-    _create_test_article(client, db, admin_headers, "Low Views", "Tech", "BBC", views=10)
-    _create_test_article(client, db, admin_headers, "High Views", "Tech", "BBC", views=100)
+    _create_test_article(
+        client, db, admin_headers, "Low Views", "Tech", "BBC", views=10
+    )
+    _create_test_article(
+        client, db, admin_headers, "High Views", "Tech", "BBC", views=100
+    )
 
     # Fetch recommendations
     response = client.get("/api/v1/articles/recommendations", headers=regular_headers)
     assert response.status_code == 200
     assert response.json()[0]["title"] == "High Views"  # Most popular first
+
+
+def test_admin_can_delete_article(client, admin_headers, moderator_headers):
+    # Create article
+    article = client.post(
+        "/api/v1/articles/",
+        json={"title": "Test", "content": "Content", "url": "https://test.com"},
+        headers=moderator_headers,
+    ).json()
+
+    # Delete as admin
+    response = client.delete(f"/api/v1/articles/{article['id']}", headers=admin_headers)
+    assert response.status_code == status.HTTP_204_NO_CONTENT

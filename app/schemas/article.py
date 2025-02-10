@@ -33,3 +33,12 @@ class ArticleUpdate(BaseModel):
     content: Optional[str] = None
     category: Optional[str] = None
     published_at: Optional[datetime] = None
+
+class ArticleFilters(BaseModel):
+    category: Optional[str] = None
+    source: Optional[str] = None
+    keyword: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    sort_by: Optional[str] = "published_at"
+    order: Optional[str] = "desc"

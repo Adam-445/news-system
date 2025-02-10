@@ -12,19 +12,23 @@ from app.services.recommendation import get_personalized_recommendation
 router = APIRouter()
 
 
-
 @router.get("/", response_model=List[schemas.ArticleResponse])
 def get_articles(
-    response: Response, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)
+    response: Response,
+    filters: schemas.ArticleFilters = Depends(),
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db),
 ):
     """
-    Fetch articles with pagination support.
+    Fetch articles with filters and pagination.
     """
-    articles, article_count = ArticleService.get_all_articles(
-        db, skip=skip, limit=limit
+    articles, article_count = ArticleService.search_articles(
+        db, filters=filters, skip=skip, limit=limit
     )
     response.headers["X-Total-Count"] = article_count
     return articles
+
 
 @router.get("/recommendations", response_model=List[schemas.ArticleResponse])
 def get_recommendations(
@@ -114,5 +118,3 @@ async def scrape_and_store_articles(
 ):
     background_tasks.add_task(ArticleService.save_articles_to_db, db)
     return {"message": "Scraping initiated. Articles will be stored shortly."}
-
-
