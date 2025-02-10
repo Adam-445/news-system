@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Response
+from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Response, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -16,8 +16,8 @@ router = APIRouter()
 def get_articles(
     response: Response,
     filters: schemas.ArticleFilters = Depends(),
-    skip: int = 0,
-    limit: int = 10,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1),
     db: Session = Depends(get_db),
 ):
     """

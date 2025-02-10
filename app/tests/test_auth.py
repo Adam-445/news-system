@@ -30,3 +30,17 @@ def test_login_invalid_credentials(client):
     credentials = {"username": "admin_user", "password": "wrongpassword"}
     response = client.post("/api/v1/auth/login", data=credentials)
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+def test_unauthenticated_access(client):
+    # Try accessing a protected endpoint without credentials
+    response = client.get("/api/v1/users/")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    response = client.delete("/api/v1/articles/1")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+def test_expired_token(client, admin_headers):
+    # Force an expired token
+    expired_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbl91c2VyIiwiZXhwIjoxNjk4MjQwMDAwfQ.INVALID_SIGNATURE"
+    response = client.get("/api/v1/users/", headers={"Authorization": f"Bearer {expired_token}"})
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED

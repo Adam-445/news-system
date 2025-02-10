@@ -24,7 +24,7 @@ class ArticleService:
         start_date: datetime = filters.start_date
         end_date: datetime = filters.end_date
         sort_by: str = filters.sort_by
-        order: str = filters.sort_by
+        order: str = filters.order
 
         query = db.query(models.Article)
 
