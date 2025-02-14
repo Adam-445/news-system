@@ -89,7 +89,7 @@ def seed_roles_permissions(session: Session, seed_default_users: bool = False):
 
 if __name__ == "__main__":
     # Only run seeding in non-production environments
-    env = settings.enviornment
+    env = settings.environment
     seed_users: bool = False
     if env == "development":
         seed_users = True

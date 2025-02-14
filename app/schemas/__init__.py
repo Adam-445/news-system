@@ -8,9 +8,9 @@ from .permission import PermissionCreate, PermissionResponse
 __all__ = [
     "ArticleCreate",
     "ArticleBase",
-    "ArticleResponse"
+    "ArticleResponse",
     "ArticleUpdate",
-    "ArticleFilters"
+    "ArticleFilters",
     "UserBase",
     "UserCreate",
     "UserResponse",

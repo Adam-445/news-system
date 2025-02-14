@@ -73,3 +73,20 @@ def add_permission_to_role(
         db.commit()
 
     return {"message": "Permission added"}
+
+
+@router.post("/permissions", status_code=status.HTTP_201_CREATED)
+def create_permission(
+    permission: schemas.PermissionCreate,
+    current_user: models.User = Depends(required_roles(["admin"])),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(models.Permission).filter_by(name=permission.name).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Permission already exists")
+
+    new_perm = models.Permission(**permission.model_dump())
+    db.add(new_perm)
+    db.commit()
+    db.refresh(new_perm)
+    return new_perm

@@ -8,6 +8,7 @@ from app.crud.articles import ArticleService
 from app.api.dependencies import get_current_user, required_roles
 from app.db import models
 from app.services.recommendation import get_personalized_recommendation
+from app.core.errors import NotFoundError, PermissionDeniedError
 
 router = APIRouter()
 
@@ -68,10 +69,7 @@ def get_article(
     """
     article = ArticleService.get_article_by_id(db, id)
     if not article:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Article with id {id} was not found.",
-        )
+        raise NotFoundError(resource="article", identifier=id)
     return article
 
 
@@ -85,11 +83,7 @@ def delete_article(
     Delete an article by ID.
     """
     if not ArticleService.delete_article(db, id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Article with id {id} was not found.",
-        )
-
+        raise NotFoundError(resource="article", identifier=id)
 
 @router.patch("/{id}", response_model=schemas.ArticleResponse)
 def update_article(
@@ -103,10 +97,7 @@ def update_article(
     """
     updated_article = ArticleService.update_article(db, id, new_article)
     if not updated_article:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Article with id {id} was not found.",
-        )
+        raise NotFoundError(resource="article", identifier=id)
     return updated_article
 
 

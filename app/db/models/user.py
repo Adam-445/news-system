@@ -19,7 +19,7 @@ class User(Base):
     is_active = Column(Boolean, server_default="TRUE", nullable=False)
 
     role_name = Column(String, ForeignKey("roles.name"), nullable=False)
-    role = relationship("Role", back_populates="users")
+    role = relationship("Role", back_populates="users", lazy="joined")
 
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("NOW()")

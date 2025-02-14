@@ -14,10 +14,10 @@ class Article(Base):
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     source = Column(String)
-    category = Column(String)
+    category = Column(String, index=True)
     url = Column(String, nullable=False, unique=True)
 
-    views = Column(Integer, server_default="0", nullable=False)
+    views = Column(Integer, server_default="0", nullable=False, index=True)
 
     published_at = Column(TIMESTAMP(timezone=True), index=True, nullable=True)
     created_at = Column(

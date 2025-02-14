@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.db import models
 from app.db.database import get_db
 from app.core.security import verify_access_token
+from app.core.errors import NotFoundError, PermissionDeniedError
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -26,17 +27,15 @@ async def get_current_user(
         .first()
     )
     if not user:
-        raise credentials_exception
+        raise NotFoundError(resource="user", identifier=token_data.username)
     return user
 
 
 def required_roles(allowed_roles: List[str]):
     def role_checker(user: models.User = Depends(get_current_user)):
-        # Compare the user's role name with allowed roles.
         if user.role.name not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions: role not allowed",
+            raise PermissionDeniedError(
+                action=f"access this endpoint", resource="admin features"
             )
         return user
 

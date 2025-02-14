@@ -74,6 +74,24 @@ def test_change_role_invalid_role(client, admin_headers, test_user):
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_permission_assignment(client, admin_headers):
+    # Create new permission
+    perm_response = client.post(
+        "/api/v1/admin/permissions",
+        json={"name": "edit_article", "description": "Edit any article"},
+        headers=admin_headers,
+    )
+    assert perm_response.status_code == 201
+
+    # Assign to moderator role
+    response = client.post(
+        "/api/v1/admin/roles/moderator/permissions",
+        params={"permission_name": "edit_article"},
+        headers=admin_headers,
+    )
+    assert response.status_code == 200
+
+
 def test_unauthenticated_access(client, test_user):
     response = client.put(
         f"/api/v1/admin/users/{test_user['id']}/roles", json={"role": "moderator"}

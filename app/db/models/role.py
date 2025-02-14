@@ -12,4 +12,4 @@ class Role(Base):
         "Permission", secondary=role_permission, back_populates="roles", lazy="joined"
     )
 
-    users = relationship("User", back_populates="role")
+    users = relationship("User", back_populates="role", lazy="dynamic")
