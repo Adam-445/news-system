@@ -1,35 +1,51 @@
 import time
 import logging
 from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
-logger = logging.getLogger(__name__)
+from app.middleware.correlation import correlation_id
 
-class RequestLoggingMiddleware:
-    async def __call__(self, request: Request, call_next):
+logger = logging.getLogger("app.request")
+
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
         start_time = time.time()
-        
-        # Log request
+        # Get correlation id from the context variable
+        cid = correlation_id.get() or "none"
+
         logger.info(
-            "Request received",
+            "Request started",
             extra={
                 "path": request.url.path,
                 "method": request.method,
-                "query_params": dict(request.query_params),
+                "correlation_id": cid,
                 "client": request.client.host if request.client else None,
-            }
+                "query_params": dict(request.query_params),
+            },
         )
 
-        # Process request
-        response = await call_next(request)
-        
-        # Log response
-        process_time = time.time() - start_time
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            logger.error(
+                "Request failed",
+                exc_info=True,
+                extra={
+                    "correlation_id": cid,
+                    "processing_time": time.time() - start_time,
+                },
+            )
+            raise
+
         logger.info(
-            "Response sent",
+            "Request completed",
             extra={
                 "status_code": response.status_code,
-                "process_time": f"{process_time:.4f}s",
-            }
+                "correlation_id": cid,
+                "processing_time": f"{time.time() - start_time:.4f}s",
+                "headers": dict(response.headers),
+            },
         )
-        
+
         return response

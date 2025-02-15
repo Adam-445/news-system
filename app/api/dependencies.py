@@ -34,9 +34,7 @@ async def get_current_user(
 def required_roles(allowed_roles: List[str]):
     def role_checker(user: models.User = Depends(get_current_user)):
         if user.role.name not in allowed_roles:
-            raise PermissionDeniedError(
-                action=f"access this endpoint", resource="admin features"
-            )
+            raise PermissionDeniedError(action=f"access this endpoint")
         return user
 
     return role_checker
@@ -44,13 +42,9 @@ def required_roles(allowed_roles: List[str]):
 
 def required_permissions(required_permission: str):
     def permission_checker(user: models.User = Depends(get_current_user)):
-        # Assuming user.role.permissions is a list of Permission objects
         user_permissions = {perm.name for perm in user.role.permissions}
         if required_permission not in user_permissions:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions",
-            )
+            raise PermissionDeniedError(action=f"access this endpoint")
         return user
 
     return permission_checker

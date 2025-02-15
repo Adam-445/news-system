@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -6,6 +6,7 @@ from app.db.database import get_db
 from app import schemas
 from app.api.dependencies import required_roles
 from app.db import models
+from app.core.errors import NotFoundError, ConflictError
 
 router = APIRouter()
 
@@ -20,11 +21,11 @@ async def update_user_roles(
 
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise NotFoundError(resource="user", identifier=user_id)
 
     role = db.query(models.Role).filter(models.Role.name == new_role.role).first()
     if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
+        raise NotFoundError(resource="role")
 
     user.role_name = new_role.role
     db.commit()
@@ -66,7 +67,7 @@ def add_permission_to_role(
     )
 
     if not role or not permission:
-        raise HTTPException(404, "Role or permission not found")
+        raise NotFoundError(resource="role or permission")
 
     if permission not in role.permissions:
         role.permissions.append(permission)
@@ -83,7 +84,7 @@ def create_permission(
 ):
     existing = db.query(models.Permission).filter_by(name=permission.name).first()
     if existing:
-        raise HTTPException(status_code=409, detail="Permission already exists")
+        raise ConflictError(resource="permission")
 
     new_perm = models.Permission(**permission.model_dump())
     db.add(new_perm)

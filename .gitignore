@@ -1,3 +1,42 @@
-venv/
+# Byte-compiled / cached files
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.so
+*.swp
+*.swo
+
+# Virtual environment
+venv/
 .env
+.venv
+env/
+
+# Log files
+logs/
+*.log
+
+# Alembic migrations cache
+alembic/versions_old/
+
+# Python package files
+*.egg-info/
+dist/
+build/
+
+# Pytest cache
+.pytest_cache/
+
+# Docker-related
+*.pid
+docker-compose.override.yml
+
+# VS Code and JetBrains IDEs
+.vscode/
+.idea/
+
+# Git-specific
+.DS_Store
+.gitignore~

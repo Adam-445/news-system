@@ -1,92 +1,128 @@
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import logging
+import os
 
+from app.api.v1 import articles, users, auth, admin
+from app.core.config import settings
+from app.core.logging import setup_logging
+from app.core.errors import APIError, ServerError
+from app.middleware.correlation import CorrelationMiddleware, correlation_id
+from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.sanitization import SanitizationMiddleware
 
-from app.api.v1 import articles, users, auth, admin  # Import API routers
-from app.db.database import engine, Base  # Database initialization
-from app.core.logging import setup_logging  # Custom logging setup
-from app.core.errors import APIError
-from app.middleware.correlation import CorrelationMiddleware
-from app.middleware.correlation import correlation_id
-
-# Initialize logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-# Base.metadata.create_all(bind=engine)
-# Create the FastAPI app
 app = FastAPI(
     title="News Recommendation System",
     description="API for recommending news articles using machine learning",
     version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
 )
-app.add_middleware(CorrelationMiddleware())
 
-# Include API routers
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
-app.include_router(articles.router, prefix="/api/v1/articles", tags=["Articles"])
-app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+# Log request with correlation ID
+app.add_middleware(RequestLoggingMiddleware)
+# Clean up sensitive data before logging
+app.add_middleware(SanitizationMiddleware)
+# Ensure correlation ids exist early
+app.add_middleware(CorrelationMiddleware)
 
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(
-        "Unhandled exception",
-        exc_info=exc,
-        extra={
-            "path": request.url.path,
-            "method": request.method,
-            "correlation_id": correlation_id.get(),
+api_routers = [
+    (auth.router, "/auth", ["Authentication"]),
+    (users.router, "/users", ["Users"]),
+    (articles.router, "/articles", ["Articles"]),
+    (admin.router, "/admin", ["Admin Management"]),
+]
+
+for router, prefix, tags in api_routers:
+    app.include_router(
+        router,
+        prefix=f"/api/v1{prefix}",
+        tags=tags,
+        responses={
+            401: {"description": "Unauthorized"},
+            403: {"description": "Forbidden"},
+            404: {"description": "Not Found"},
         },
     )
+
+# FastAPI uses reverse registration order (last registered runs first)
+# We want specific handlers first, generic last
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_validation_error(request: Request, exc: RequestValidationError):
+    """Standardize validation error responses"""
+    errors = [
+        {
+            "field": ".".join(map(str, err["loc"])),
+            "message": err["msg"],
+            "type": err["type"],
+        }
+        for err in exc.errors()
+    ]
+
     return JSONResponse(
-        status_code=500,
-        content={"error": "Internal server error"},
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": "Request validation failed",
+            "code": status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "detail": errors,
+            "path": request.url.path,
+            "correlation_id": correlation_id.get(),
+        },
     )
 
 
 @app.exception_handler(APIError)
 async def handle_api_error(request: Request, exc: APIError):
+    """Centralized error handling for all known API errors"""
+    error_content = exc.to_dict()
+    error_content.update(
+        {"path": request.url.path, "correlation_id": correlation_id.get()}
+    )
+    return JSONResponse(status_code=exc.status_code, content=error_content)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Fallback for unexpected errors"""
+    logger = logging.getLogger("app.error")
+    logger.critical(
+        "Unhandled exception",
+        exc_info=exc,
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "correlation_id": correlation_id.get() or "none",
+        },
+    )
+
+    server_error = ServerError(
+        detail="An unexpected error occurred. Please try again later."
+    )
+
     return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": exc.message, "code": exc.status_code, "detail": exc.detail},
+        status_code=server_error.status_code,
+        content=server_error.to_dict()
+        | {"path": request.url.path, "correlation_id": correlation_id.get()},
     )
 
 
-@app.exception_handler(RequestValidationError)
-async def handle_validation_error(request: Request, exc: RequestValidationError):
-    errors = []
-    for error in exc.errors():
-        # error["loc"] is a tuple describing the location of the error,
-        # we grab the last element which typically is the field name
-        field = error["loc"][-1]
-        errors.append({"field": field, "message": error["msg"], "type": error["type"]})
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"error": "Validation failed", "code": 422, "detail": errors},
-    )
-
-
-# # Event handlers for startup and shutdown
-# @app.lifespan("startup")
-# async def on_startup():
-#     # Initialize the database connection
-#     print("Starting the application...")
-#     # await init_db()
-
-
-# @app.lifespan("shutdown")
-# async def on_shutdown():
-#     # Close database connections or other cleanup tasks
-#     pass
-
-
-# Health check endpoint
-@app.get("/")
-def health_check():
-    return {"status": "ok", "message": "Welcome to the News Recommendation API!"}
+# -------------------------------------------------------------------
+# Health Check Endpoint
+# -------------------------------------------------------------------
+@app.get(
+    "/",
+    summary="API Health Check",
+    response_description="System status information",
+    tags=["System"],
+)
+async def health_check() -> dict:
+    """Get API health status"""
+    return {"status": "ok", "version": app.version, "environment": settings.environment}

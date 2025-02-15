@@ -2,6 +2,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from uuid import UUID
+
 from app.db import models
 from app.schemas import UserCreate
 from app.core import security
@@ -23,7 +24,7 @@ class UserService:
                 sort_column.desc() if order == "desc" else sort_column.asc()
             )
         return query.limit(limit).offset(skip).all()
-
+    
     @staticmethod
     def create_user(db: Session, user_data: UserCreate) -> models.User:
         try:

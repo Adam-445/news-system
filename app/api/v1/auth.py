@@ -1,12 +1,14 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, status, HTTPException, Response
+from fastapi import APIRouter, Depends, status
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+
 from app.db import models
 import app.schemas as schemas
 import app.core.security as security
 from app.db.database import get_db
 from app.crud.users import UserService
+from app.core.errors import ConflictError, UnauthorizedError
 
 router = APIRouter()
 
@@ -20,10 +22,7 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
     """
     new_user = UserService.create_user(db, user)
     if not new_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"User with this email or username already exists.",
-        )
+        raise ConflictError(resource="email or username")
     return new_user
 
 
@@ -39,9 +38,7 @@ def login(user_credentials: Annotated[OAuth2PasswordRequestForm, Depends()], db:
         user and security.verify_password(
             user_credentials.password, user.password)
     ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Credentails."
-        )
+        raise UnauthorizedError
 
     # create a token
     access_token = security.create_access_token(data={"username": user.username, "role": user.role.name})

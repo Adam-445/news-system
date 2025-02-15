@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.db import models
 from app import schemas
 from app.services.scraping import scrape_via_api
+from app.core.errors import ConflictError, ServerError
 
 import logging
 
@@ -60,23 +61,22 @@ class ArticleService:
         return articles, str(total_count)
 
     @staticmethod
-    def create_article(db: Session, article_data: schemas.ArticleCreate):
-        existing = (
-            db.query(models.Article)
-            .filter(models.Article.url == article_data.url)
-            .first()
-        )
+    def create_article(db: Session, article_data: schemas.ArticleCreate) -> models.Article:
+        existing = db.query(models.Article).filter(models.Article.url == article_data.url).first()
         if existing:
-            raise HTTPException(status_code=409, detail="URL exists")
+            raise ConflictError("Article")
+
         try:
+            # Create from validated data
             article = models.Article(**article_data.model_dump())
             db.add(article)
             db.commit()
             db.refresh(article)
             return article
-        except Exception as e:
+        except SQLAlchemyError as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Error creating article.")
+            # logger.error(f"Database error creating article: {str(e)}")
+            raise ServerError("Failed to create article")
 
     @staticmethod
     async def save_articles_to_db(db: Session):
@@ -104,11 +104,7 @@ class ArticleService:
             logger.info("Successfully saved %d new articles", len(new_articles))
         except SQLAlchemyError as e:
             db.rollback()
-            logger.error(f"Database error: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail="Could not create article. Please try again later.",
-            )
+            raise ServerError(message="Error creating article.")
 
     @staticmethod
     def get_article_by_id(db: Session, article_id: int):

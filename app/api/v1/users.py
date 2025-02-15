@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -9,6 +9,7 @@ from app.api.dependencies import required_roles, get_current_user
 import app.schemas as schemas
 from app.crud.users import UserService
 from app.crud.preference import PreferenceService
+from app.core.errors import NotFoundError, BadRequestError
 
 router = APIRouter()
 
@@ -40,9 +41,9 @@ def search_users(
     Search users by ID, email or username.
     """
     if not any([id, username, email]):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one search parameter must be provided",
+        raise BadRequestError(
+            message="Invalid search request",
+            detail="At least one search parameter must be provided"
         )
     return UserService.search_users(db, id=id, email=email, username=username)
 
@@ -57,10 +58,7 @@ def delete_user(
     Delete a user by ID.
     """
     if not UserService.delete_user(db, id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with id {id} was not found.",
-        )
+        raise NotFoundError(resource="user", identifier=id)
 
 
 @router.patch("/undelete/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -73,10 +71,7 @@ def undelete_user(
     Undelete a user by ID.
     """
     if not UserService.undelete_user(db, id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with id {id} was not found.",
-        )
+        raise NotFoundError(resource="user", identifier=id)
 
 
 @router.patch("/{id}", response_model=schemas.UserResponse)
@@ -91,10 +86,7 @@ def update_user(
     """
     updated_user = UserService.update_user(db, id, new_user)
     if not updated_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with id {id} was not found.",
-        )
+        raise NotFoundError(resource="user", identifier=id)
     return updated_user
 
 

@@ -4,9 +4,16 @@ def test_not_found_error(client, regular_headers):
     assert response.json() == {
         "error": "article not found",
         "code": 404,
-        "detail": "No article with ID 999999",
+        "detail": "No article with ID 999999 found",
     }
 
+    response = client.get("/api/v1/users/search", params={"id": 9999}, headers=regular_headers)
+    assert response.status_code == 404
+    assert response.json() == {
+        "error": "user not found",
+        "code": 404,
+        "detail": "No user with ID 999999 found",
+    }
 
 def test_validation_error(client):
     response = client.post(

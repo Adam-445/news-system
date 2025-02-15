@@ -53,7 +53,7 @@ def test_get_article_by_id(client, moderator_headers, regular_headers):
 def test_article_not_found(client, regular_headers):
     response = client.get("/api/v1/articles/9999", headers=regular_headers)
     assert response.status_code == 404
-    assert "Article with ID 9999 was not found" in response.json()["detail"]
+    assert "No article found with ID 9999" in response.json()["detail"]
 
 def test_invalid_article_id(client, regular_headers):
     # Non-integer id

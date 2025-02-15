@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks, Response, Query
+from fastapi import APIRouter, Depends, status, BackgroundTasks, Response, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -8,7 +8,7 @@ from app.crud.articles import ArticleService
 from app.api.dependencies import get_current_user, required_roles
 from app.db import models
 from app.services.recommendation import get_personalized_recommendation
-from app.core.errors import NotFoundError, PermissionDeniedError
+from app.core.errors import NotFoundError, ServerError
 
 router = APIRouter()
 
@@ -52,10 +52,10 @@ def create_article(
     """
     Create a new article.
     """
-    article = ArticleService.create_article(db, article)
-    if not article:
-        raise HTTPException(status_code=500, detail=f"Error creating article.")
-    return article
+    created_article = ArticleService.create_article(db, article)
+    if not created_article:
+        raise ServerError(message="Error creating article.")
+    return created_article
 
 
 @router.get("/{id}", response_model=schemas.ArticleResponse)
@@ -84,6 +84,7 @@ def delete_article(
     """
     if not ArticleService.delete_article(db, id):
         raise NotFoundError(resource="article", identifier=id)
+
 
 @router.patch("/{id}", response_model=schemas.ArticleResponse)
 def update_article(

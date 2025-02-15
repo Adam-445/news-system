@@ -1,68 +1,99 @@
-import logging
-import json
-from logging.config import dictConfig
-from logging.handlers import RotatingFileHandler
-from fastapi import Request
-from pythonjsonlogger import json
 import os
+from logging.config import dictConfig
+from pythonjsonlogger import jsonlogger
+from datetime import datetime, timezone
 
-from app.middleware.correlation import correlation_id
 from app.core.config import settings
+from app.middleware.correlation import correlation_id
 
 
-class CustomJsonFormatter(json.JsonFormatter):
+class CustomJsonFormatter(jsonlogger.JsonFormatter):
+    def formatTime(self, record, datefmt=None):
+        # Convert the created timestamp to a timezone-aware datetime (UTC)
+        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat()
+
     def add_fields(self, log_record, record, message_dict):
         super().add_fields(log_record, record, message_dict)
 
-        log_record["correlation_id"] = (
-            record.correlation_id if hasattr(record, "correlation_id") else None
+        # Add correlation ID
+        log_record["correlation_id"] = correlation_id.get() or ""
+
+        # Standard fields
+        log_record.update(
+            {
+                "timestamp": self.formatTime(record, self.datefmt),
+                "level": record.levelname,
+                "logger": record.name,
+                "module": record.module,
+                "function": record.funcName,
+                "line": record.lineno,
+                "process": record.process,
+                "thread": record.threadName,
+            }
         )
-        log_record["level"] = record.levelname
-        log_record["timestamp"] = self.formatTime(record)
-        log_record["module"] = record.module
-        log_record["function"] = record.funcName
-        log_record["line"] = record.lineno
 
 
 def setup_logging():
     log_dir = "logs"
-    # Create directory if it doesnt exist
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    os.makedirs(log_dir, exist_ok=True)
 
-    # Choose formatter based on environment variable
-    if settings.log_format == "json":
-        formatter_config = {"()": CustomJsonFormatter}
-    else:
-        # Define a plain text formatter
-        formatter_config = {
-            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        }
-    logging_config = {
+    log_format = settings.log_format.lower()
+    log_level = settings.log_level.upper()
+
+    LOGGING_CONFIG = {
         "version": 1,
         "disable_existing_loggers": False,
-        "formatters": {settings.log_format: formatter_config},
+        "formatters": {
+            "json": {
+                "()": CustomJsonFormatter,
+                "format": "%(timestamp)s %(level)s %(name)s %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S %z",
+            },
+            "simple": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S %z",
+            },
+        },
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
-                "formatter": settings.log_format,
+                "formatter": "json" if log_format == "json" else "simple",
                 "stream": "ext://sys.stdout",
             },
             "file": {
                 "class": "logging.handlers.RotatingFileHandler",
-                "filename": "logs/app.log",
-                "maxBytes": 10485760,  # 10MB
+                "filename": os.path.join(log_dir, "app.log"),
+                "maxBytes": 10 * 1024 * 1024,  # 10MB
                 "backupCount": 5,
-                "formatter": settings.log_format,
+                "formatter": "json" if log_format == "json" else "simple",
+                "encoding": "utf8",
             },
         },
-        "root": {
-            "handlers": ["console"],
-            "level": settings.log_level,
-        },
         "loggers": {
-            "uvicorn.access": {"propagate": False},
-            "uvicorn.error": {"propagate": False},
+            "app": {
+                "handlers": ["console", "file"],
+                "level": log_level,
+                "propagate": False,
+            },
+            "uvicorn": {
+                "handlers": ["console", "file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["console", "file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "uvicorn.error": {"level": "INFO", "propagate": False},
+        },
+        "root": {
+            "handlers": ["console", "file"],
+            "level": log_level,
         },
     }
-    dictConfig(logging_config)
+
+    dictConfig(LOGGING_CONFIG)
