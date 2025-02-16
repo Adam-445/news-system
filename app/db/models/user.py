@@ -6,7 +6,7 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 import uuid
 import enum
 
-from app.db.database import Base
+from app.db.base import Base
 
 
 class User(Base):
@@ -16,7 +16,9 @@ class User(Base):
     username = Column(String, nullable=False, unique=True, index=True)
     email = Column(String, nullable=False, unique=True, index=True)
     password = Column(String, nullable=False)
-    is_active = Column(Boolean, server_default="TRUE", nullable=False)
+
+    is_deleted = Column(Boolean, server_default="FALSE", nullable=False)
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     role_name = Column(String, ForeignKey("roles.name"), nullable=False)
     role = relationship("Role", back_populates="users", lazy="joined")

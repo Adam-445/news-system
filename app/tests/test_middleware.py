@@ -1,14 +1,15 @@
 import json
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-import logging
 
 
-from app.middleware.sanitization import SanitizationMiddleware 
-from app.middleware.correlation import CorrelationMiddleware
-from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.sanitization import SanitizationMiddleware
 
-# Create a temporary FastAPI app for testing the middleware.
+# We create a separate FastAPI test app here because middleware stores
+# sanitized data in `request.state`, which is not directly accessible
+# in regular tests using the `client` fixture.
+# This test app allows us to inspect middleware behavior in isolation
+# without relying on the full application setup.
 app = FastAPI()
 
 
@@ -69,28 +70,29 @@ def test_sanitization_body():
     assert body_data.get("username") == "user1"
     assert body_data.get("email") == "user@example.com"
 
+
 def test_sanitization_nested_objects():
     """Test redaction in nested JSON structures"""
     payload = {
-        "user": {
-            "password": "secret",
-            "details": {
-                "token": "nested_token"
-            }
-        },
-        "auth": {
-            "authorization": "Bearer abc123"
-        }
+        "user": {"password": "secret", "details": {"token": "nested_token"}},
+        "auth": {"authorization": "Bearer abc123"},
     }
-    
+
     response = client.post("/test/sanitization", json=payload)
     sanitized = json.loads(response.json()["sanitized_body"])
-    
+
     assert sanitized["user"]["password"] == "***REDACTED***"
     assert sanitized["user"]["details"]["token"] == "***REDACTED***"
     assert sanitized["auth"]["authorization"] == "***REDACTED***"
+
 
 def test_sanitization_non_json_body():
     """Test middleware handles non-JSON bodies gracefully"""
     response = client.post("/test/sanitization", content=b"raw binary data")
     assert response.json()["sanitized_body"] is None
+
+
+def test_correlation_id_propagation(client):
+    response = client.get("/api/v1/articles/")
+    assert "X-Correlation-ID" in response.headers
+    assert len(response.headers["X-Correlation-ID"]) == 36

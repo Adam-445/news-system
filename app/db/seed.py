@@ -1,7 +1,7 @@
 import os
 from sqlalchemy.orm import Session
 
-from app.db.database import engine
+from app.db.connection import engine
 from app.db.models.role import Role
 from app.db.models.permission import Permission
 from app.db.models.user import User

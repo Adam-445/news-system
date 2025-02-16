@@ -2,7 +2,10 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from uuid import UUID
+from datetime import datetime, timezone
 
+
+from app.core.errors import ConflictError, NotFoundError
 from app.db import models
 from app.schemas import UserCreate
 from app.core import security
@@ -17,14 +20,14 @@ class UserService:
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> List[models.User]:
-        query = db.query(models.User).filter(models.User.is_active)
+        query = db.query(models.User)
         sort_column = getattr(models.User, sort_by, None)
         if sort_column:
             query = query.order_by(
                 sort_column.desc() if order == "desc" else sort_column.asc()
             )
         return query.limit(limit).offset(skip).all()
-    
+
     @staticmethod
     def create_user(db: Session, user_data: UserCreate) -> models.User:
         try:
@@ -56,22 +59,42 @@ class UserService:
         return query.all()
 
     @staticmethod
-    def delete_user(db: Session, user_id: UUID) -> bool:
+    def delete_user(db: Session, user_id: UUID) -> models.User:
+        # Fetch the user
         user = db.query(models.User).filter(models.User.id == user_id).first()
+
+        # User doesn't exist
         if not user:
-            return False
-        user.is_active = False
+            raise NotFoundError(resource="User", identifier=user_id)
+
+        # User already deleted
+        if user.is_deleted:
+            raise ConflictError(resource="User")
+
+        user.is_deleted = True
+        user.deleted_at = datetime.now(tz=timezone.utc)
         db.commit()
-        return True
+        db.refresh(user)
+
+        return user
 
     @staticmethod
     def undelete_user(db: Session, user_id: UUID) -> bool:
         user = db.query(models.User).filter(models.User.id == user_id).first()
+
         if not user:
-            return False
-        user.is_active = True
+            raise NotFoundError(resource="User", identifier=user_id)
+
+        # User already active
+        if not user.is_deleted:
+            raise ConflictError(resource="User")
+
+        user.is_deleted = False
+        user.deleted_at = None
         db.commit()
-        return True
+        db.refresh(user)
+
+        return user
 
     @staticmethod
     def update_user(db: Session, user_id: UUID, new_data: UserCreate):

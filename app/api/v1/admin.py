@@ -33,25 +33,6 @@ async def update_user_roles(
     return user
 
 
-# @router.put("/roles/{role_name}", response_model=RoleUpdate)
-# def update_role(
-#     role_name: str,
-#     role_update: RoleUpdate,
-#     current_user: models.User = Depends(required_roles(["admin"])),
-#     db: Session = Depends(get_db),
-# ):
-#     role = db.query(models.Role).filter(models.Role.name == role_name).first()
-#     if not role:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-#         )
-#     if role_update.description is not None:
-#         role.description = role_update.description
-#     db.commit()
-#     db.refresh(role)
-#     return role
-
-
 @router.post("/roles/{role_name}/permissions")
 def add_permission_to_role(
     role_name: str,

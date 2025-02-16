@@ -158,3 +158,21 @@ def test_role_propagation(client, admin_headers):
         headers=headers,
     )
     assert response.status_code == status.HTTP_201_CREATED
+
+def test_create_duplicate_permission(client, admin_headers):
+    # Create permission
+    response = client.post(
+        "/api/v1/admin/permissions",
+        json={"name": "test_perm", "description": "Testing Permission"},
+        headers=admin_headers,
+    )
+    assert response.status_code == 201
+
+    # Duplicate permission
+    response = client.post(
+        "/api/v1/admin/permissions",
+        json={"name": "test_perm", "description": "Testing Permission"},
+        headers=admin_headers,
+    )
+    assert response.status_code == 409
+    assert "Permission conflict" in response.json()["error"]

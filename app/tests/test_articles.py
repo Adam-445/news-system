@@ -55,6 +55,7 @@ def test_article_not_found(client, regular_headers):
     assert response.status_code == 404
     assert "No article found with ID 9999" in response.json()["detail"]
 
+
 def test_invalid_article_id(client, regular_headers):
     # Non-integer id
     response = client.get("/api/v1/articles/invalid_id", headers=regular_headers)
@@ -264,7 +265,9 @@ def test_regular_user_cannot_create_article(client, regular_headers):
     assert response.status_code == 403
 
 
-def test_admin_can_delete_article(client, admin_headers, moderator_headers):
+def test_admin_can_delete_article(
+    client, regular_headers, admin_headers, moderator_headers
+):
     # Create article
     article = client.post(
         "/api/v1/articles/",
@@ -275,3 +278,12 @@ def test_admin_can_delete_article(client, admin_headers, moderator_headers):
     # Delete as admin
     response = client.delete(f"/api/v1/articles/{article['id']}", headers=admin_headers)
     assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    # Verify retrieval for admin users
+    response = client.get(f"/api/v1/articles/{article['id']}", headers=admin_headers)
+    data = response.json()
+    assert data["is_deleted"] is True
+
+    # Verify non-existence for regular users
+    response = client.get(f"/api/v1/articles/{article['id']}", headers=regular_headers)
+    assert response.status_code == status.HTTP_404_NOT_FOUND

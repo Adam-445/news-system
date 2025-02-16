@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.database import Base
+from app.db.base import Base
 
 class UserPreference(Base):
     __tablename__ = "user_preferences"

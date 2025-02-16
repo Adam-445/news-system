@@ -1,5 +1,5 @@
 from app.core.config import settings
-from app.db.database import Base
+from app.db.base import Base
 from app.db.models import article, user, category
 
 from logging.config import fileConfig

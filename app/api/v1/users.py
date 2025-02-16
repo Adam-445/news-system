@@ -43,9 +43,12 @@ def search_users(
     if not any([id, username, email]):
         raise BadRequestError(
             message="Invalid search request",
-            detail="At least one search parameter must be provided"
+            detail="At least one search parameter must be provided",
         )
-    return UserService.search_users(db, id=id, email=email, username=username)
+    user = UserService.search_users(db, id=id, email=email, username=username)
+    if not user:
+        raise NotFoundError(resource="user")
+    return user
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -57,8 +60,7 @@ def delete_user(
     """
     Delete a user by ID.
     """
-    if not UserService.delete_user(db, id):
-        raise NotFoundError(resource="user", identifier=id)
+    UserService.delete_user(db, id)
 
 
 @router.patch("/undelete/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -70,8 +72,7 @@ def undelete_user(
     """
     Undelete a user by ID.
     """
-    if not UserService.undelete_user(db, id):
-        raise NotFoundError(resource="user", identifier=id)
+    UserService.undelete_user(db, id)
 
 
 @router.patch("/{id}", response_model=schemas.UserResponse)

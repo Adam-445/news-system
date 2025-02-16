@@ -1,11 +1,10 @@
-
-from sqlalchemy import TIMESTAMP, Column, Integer, String, Text
+from sqlalchemy import TIMESTAMP, Column, Integer, String, Text, Boolean
 from sqlalchemy.sql.expression import text
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 # For article metadata
 # from sqlalchemy.dialects.postgresql import JSONB
 
-from app.db.database import Base
+from app.db.base import Base
 
 class Article(Base):
     __tablename__ = "articles"
@@ -18,6 +17,9 @@ class Article(Base):
     url = Column(String, nullable=False, unique=True)
 
     views = Column(Integer, server_default="0", nullable=False, index=True)
+
+    is_deleted = Column(Boolean, server_default='FALSE')
+    deleted_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     published_at = Column(TIMESTAMP(timezone=True), index=True, nullable=True)
     created_at = Column(

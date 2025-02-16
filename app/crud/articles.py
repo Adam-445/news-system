@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -7,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.db import models
 from app import schemas
 from app.services.scraping import scrape_via_api
-from app.core.errors import ConflictError, ServerError
+from app.core.errors import ConflictError, NotFoundError, ServerError
 
 import logging
 
@@ -61,8 +62,14 @@ class ArticleService:
         return articles, str(total_count)
 
     @staticmethod
-    def create_article(db: Session, article_data: schemas.ArticleCreate) -> models.Article:
-        existing = db.query(models.Article).filter(models.Article.url == article_data.url).first()
+    def create_article(
+        db: Session, article_data: schemas.ArticleCreate
+    ) -> models.Article:
+        existing = (
+            db.query(models.Article)
+            .filter(models.Article.url == article_data.url)
+            .first()
+        )
         if existing:
             raise ConflictError("Article")
 
@@ -118,13 +125,26 @@ class ArticleService:
         return article
 
     @staticmethod
-    def delete_article(db: Session, article_id: int) -> bool:
-        article = db.query(models.Article).filter(models.Article.id == article_id)
-        if not article.first():
-            return False
-        article.delete(synchronize_session=False)
+    def delete_article(db: Session, article_id: int) -> models.Article:
+        # Fetch the article
+        article = (
+            db.query(models.Article).filter(models.Article.id == article_id).first()
+        )
+
+        # Article doesn't exist
+        if not article:
+            raise NotFoundError(resource="Article", identifier=article_id)
+
+        # Article already deleted
+        if article.is_deleted:
+            raise ConflictError(resource="Article")
+
+        article.is_deleted = True
+        article.deleted_at = datetime.now(tz=timezone.utc)
         db.commit()
-        return True
+        db.refresh(article)
+
+        return article
 
     @staticmethod
     def update_article(db: Session, article_id: int, new_data: schemas.ArticleCreate):

@@ -19,6 +19,7 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
     token_data = verify_access_token(token, credentials_exception)
     # Eager load the role for quicker checks:
     user = (
@@ -28,6 +29,8 @@ async def get_current_user(
     )
     if not user:
         raise NotFoundError(resource="user", identifier=token_data.username)
+    # Pre comput the flag
+    db.info["is_admin"] = user.role.name == "admin"
     return user
 
 

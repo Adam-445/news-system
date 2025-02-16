@@ -23,6 +23,7 @@ class ArticleCreate(ArticleBase):
 class ArticleResponse(ArticleBase):
     id: int
     views: int
+    is_deleted: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

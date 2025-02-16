@@ -21,7 +21,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: UUID4
-    is_active: bool
+    is_deleted: bool
     role_name: str
     created_at: datetime
 

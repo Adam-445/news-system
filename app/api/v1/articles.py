@@ -82,8 +82,7 @@ def delete_article(
     """
     Delete an article by ID.
     """
-    if not ArticleService.delete_article(db, id):
-        raise NotFoundError(resource="article", identifier=id)
+    ArticleService.delete_article(db, id)
 
 
 @router.patch("/{id}", response_model=schemas.ArticleResponse)

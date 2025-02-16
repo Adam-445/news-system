@@ -5,7 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from uuid import UUID
 
 from app.main import app
-from app.db.database import Base, get_db
+from app.db.base import Base
+from app.db.database import get_db
 from app.core.config import settings
 from app.db.seed import seed_roles_permissions
 
