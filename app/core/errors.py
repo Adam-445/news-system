@@ -42,7 +42,7 @@ class NotFoundError(APIError):
     def __init__(
         self, resource: str, identifier: Optional[Union[str, int, UUID]] = None
     ) -> None:
-        detail = f"No {resource} found"
+        detail = f"No {resource.lower()} found"
         if identifier:
             detail += f" with ID {identifier}"
         super().__init__(
@@ -62,7 +62,7 @@ class PermissionDeniedError(APIError):
     ) -> None:
         detail = f"You lack permission to {action}"
         if resource:
-            detail += f" on {resource}"
+            detail += f" on {resource.lower()}"
         super().__init__(
             status_code=status.HTTP_403_FORBIDDEN,
             message="Permission denied",

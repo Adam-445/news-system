@@ -1,6 +1,4 @@
 from datetime import datetime, timezone
-from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -8,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.db import models
 from app import schemas
 from app.services.scraping import scrape_via_api
-from app.core.errors import ConflictError, NotFoundError, ServerError
+from app.core.errors import BadRequestError, ConflictError, NotFoundError, ServerError
 
 import logging
 
@@ -28,6 +26,7 @@ class ArticleService:
         sort_by: str = filters.sort_by
         order: str = filters.order
 
+        allowed_sort_fields = {"category", "views", "published_at"}
         query = db.query(models.Article)
 
         # Apply filters
@@ -51,14 +50,18 @@ class ArticleService:
 
         # Sorting
         # Verify column existence
+        if sort_by not in allowed_sort_fields:
+            BadRequestError(
+                message="Invalid field", detail=f"Invalid sort field: {sort_by}"
+            )
         sort_column = getattr(models.Article, sort_by, None)
         if sort_column:
             query = query.order_by(
                 sort_column.desc() if order == "desc" else sort_column.asc()
             )
 
-        articles = query.offset(skip).limit(limit).all()
         total_count = query.count()
+        articles = query.offset(skip).limit(limit).all()
         return articles, str(total_count)
 
     @staticmethod
@@ -71,7 +74,7 @@ class ArticleService:
             .first()
         )
         if existing:
-            raise ConflictError("Article")
+            raise ConflictError("article")
 
         try:
             # Create from validated data
@@ -82,8 +85,70 @@ class ArticleService:
             return article
         except SQLAlchemyError as e:
             db.rollback()
-            # logger.error(f"Database error creating article: {str(e)}")
-            raise ServerError("Failed to create article")
+            raise ServerError(
+                "Failed to create article",
+                detail=f"Database error creating article: {str(e)}",
+            )
+
+    @staticmethod
+    def get_article_by_id(db: Session, article_id: int):
+        article = (
+            db.query(models.Article).filter(models.Article.id == article_id).first()
+        )
+
+        if not article:
+            raise NotFoundError(resource="article", identifier=article_id)
+
+        # Atomic update for views
+        db.query(models.Article).filter(models.Article.id == article_id).update(
+            {"views": models.Article.views + 1}, synchronize_session=False
+        )
+        db.commit()
+
+        # Refresh the article from the DB to return the updated data
+        db.refresh(article)
+
+        return article
+
+    @staticmethod
+    def delete_article(db: Session, article_id: int) -> models.Article:
+        # Fetch the article
+        article = (
+            db.query(models.Article).filter(models.Article.id == article_id).first()
+        )
+
+        # Article doesn't exist
+        if not article:
+            raise NotFoundError(resource="article", identifier=article_id)
+
+        # Article already deleted
+        if article.is_deleted:
+            raise ConflictError(resource="article")
+
+        article.is_deleted = True
+        article.deleted_at = datetime.now(tz=timezone.utc)
+        db.commit()
+        db.refresh(article)
+
+        return article
+
+    @staticmethod
+    def update_article(db: Session, article_id: int, new_data: schemas.ArticleCreate):
+        article = (
+            db.query(models.Article).filter(models.Article.id == article_id).first()
+        )
+        if not article:
+            raise NotFoundError(resource="article", identifier=article_id)
+
+        # Iterate over the fields provided in `new_data` and update the model instance
+        # Only include fields that are set
+        updated_fields = new_data.model_dump(exclude_unset=True)
+        for field, value in updated_fields.items():
+            setattr(article, field, value)
+
+        db.commit()
+        db.refresh(article)
+        return article
 
     @staticmethod
     async def save_articles_to_db(db: Session):
@@ -104,7 +169,14 @@ class ArticleService:
 
         stmt = insert(models.Article).values(new_articles)
         # Avoid duplicates by URL
-        stmt = stmt.on_conflict_do_nothing(index_elements=["url"])
+        stmt = insert(models.Article).values(new_articles)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["url"],
+            set_={
+                c: getattr(stmt.excluded, c)
+                for c in ["title", "content", "published_at"]
+            },
+        )
         try:
             db.execute(stmt)
             db.commit()
@@ -112,54 +184,3 @@ class ArticleService:
         except SQLAlchemyError as e:
             db.rollback()
             raise ServerError(message="Error creating article.")
-
-    @staticmethod
-    def get_article_by_id(db: Session, article_id: int):
-        article = (
-            db.query(models.Article).filter(models.Article.id == article_id).first()
-        )
-        if article:
-            article.views += 1
-            db.commit()
-            db.refresh(article)
-        return article
-
-    @staticmethod
-    def delete_article(db: Session, article_id: int) -> models.Article:
-        # Fetch the article
-        article = (
-            db.query(models.Article).filter(models.Article.id == article_id).first()
-        )
-
-        # Article doesn't exist
-        if not article:
-            raise NotFoundError(resource="Article", identifier=article_id)
-
-        # Article already deleted
-        if article.is_deleted:
-            raise ConflictError(resource="Article")
-
-        article.is_deleted = True
-        article.deleted_at = datetime.now(tz=timezone.utc)
-        db.commit()
-        db.refresh(article)
-
-        return article
-
-    @staticmethod
-    def update_article(db: Session, article_id: int, new_data: schemas.ArticleCreate):
-        article = (
-            db.query(models.Article).filter(models.Article.id == article_id).first()
-        )
-        if not article:
-            return None
-
-        # Iterate over the fields provided in `new_data` and update the model instance
-        # Only include fields that are set
-        updated_fields = new_data.model_dump(exclude_unset=True)
-        for field, value in updated_fields.items():
-            setattr(article, field, value)
-
-        db.commit()
-        db.refresh(article)
-        return article

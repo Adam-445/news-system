@@ -64,11 +64,11 @@ def test_user_soft_delete(client, admin_headers, regular_headers, test_user):
     assert delete_response.status_code == 204
     
     # Retrieve user as an admin
-    user_response = client.get("api/v1/users/search", params={"id": user_id}, headers=admin_headers)
-    assert user_response.json()[0]["is_deleted"] is True
+    user_response = client.get(f"api/v1/users/{user_id}", headers=admin_headers)
+    assert user_response.json()["is_deleted"] is True
 
     # Verify non-existence for regular users
-    response = client.get("api/v1/users/search", params={"id": user_id}, headers=regular_headers)
+    response = client.get(f"api/v1/users/{user_id}", headers=regular_headers)
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -86,9 +86,9 @@ def test_reactivate_deleted_user(client, admin_headers, test_user):
 
     # Verify reactivation
     response = client.get(
-        "/api/v1/users/search", params={"id": test_user_id}, headers=admin_headers
+        f"/api/v1/users/{test_user_id}", headers=admin_headers
     )
-    assert response.json()[0]["is_deleted"] is False
+    assert response.json()["is_deleted"] is False
 
 
 def test_delete_already_deleted_user(client, admin_headers, test_user):
