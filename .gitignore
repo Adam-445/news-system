@@ -1,6 +1,7 @@
 # Byte-compiled / cached files
 __pycache__/
 *.py[cod]
+*.pyc
 *.pyo
 *.pyd
 *.pdb
@@ -13,6 +14,7 @@ venv/
 .env
 .venv
 env/
+*.env.local
 
 # Log files
 logs/
@@ -32,6 +34,7 @@ build/
 # Docker-related
 *.pid
 docker-compose.override.yml
+.env.docker
 
 # VS Code and JetBrains IDEs
 .vscode/

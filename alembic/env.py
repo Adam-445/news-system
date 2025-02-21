@@ -14,7 +14,7 @@ from alembic import context
 config = context.config
 config.set_main_option(
     "sqlalchemy.url",
-    f"postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}/{settings.database_name}",
+    settings.database_url
 )
 
 # Interpret the config file for Python logging.

@@ -8,10 +8,6 @@ from app import schemas
 from app.services.scraping import scrape_via_api
 from app.core.errors import BadRequestError, ConflictError, NotFoundError, ServerError
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class ArticleService:
     @staticmethod

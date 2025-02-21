@@ -2,11 +2,11 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import logging
-import os
 
 from app.api.v1 import articles, users, auth, admin
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.core.rate_limiting import init_rate_limiter
 from app.core.errors import APIError, ServerError
 from app.middleware.correlation import CorrelationMiddleware, correlation_id
 from app.middleware.request_logging import RequestLoggingMiddleware
@@ -22,7 +22,14 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    # dependencies=[Depends(get_rate_limiter(times=100, hours=1))],
 )
+
+
+@app.on_event("startup")
+async def startup():
+    await init_rate_limiter()
+
 
 # Log request with correlation ID
 app.add_middleware(RequestLoggingMiddleware)
@@ -118,7 +125,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Health Check Endpoint
 # -------------------------------------------------------------------
 @app.get(
-    "/",
+    "/health",
     summary="API Health Check",
     response_description="System status information",
     tags=["System"],

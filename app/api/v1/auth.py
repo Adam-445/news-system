@@ -10,6 +10,7 @@ import app.core.security as security
 from app.db.database import get_db
 from app.crud.users import UserService
 from app.core.errors import ConflictError, UnauthorizedError
+from app.core.rate_limiting import strict_rate_limiter
 
 router = APIRouter()
 
@@ -145,7 +146,7 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         },
     },
     # TODO: Implement RateLimiter to prevent brute-force attacks
-    # dependencies=[Depends(RateLimiter(times=5, minutes=1))]
+    dependencies=[Depends(strict_rate_limiter)]
 )
 def login(
     user_credentials: OAuth2PasswordRequestForm = Depends(),
