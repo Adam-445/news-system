@@ -142,14 +142,21 @@ class ServerError(APIError):
             detail=detail,
         )
 
+
 class RateLimitError(APIError):
     """
     Raised when a user exceeds the allowed request rate.
     """
 
-    def __init__(self, detail: Optional[str] = "Too many requests. Try again later."):
+    def __init__(
+        self,
+        request=None,
+        response=None,
+        pexpire=None,
+        detail: Optional[str] = "Too many requests. Try again later.",
+    ):
         super().__init__(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            status_code=429,
             message="Rate limit exceeded",
             detail=detail,
         )

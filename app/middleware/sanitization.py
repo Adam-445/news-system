@@ -2,7 +2,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request
 import json
 
-SENSITIVE_KEYS = ["password", "token", "authorization"]
+SENSITIVE_KEYS = {"password", "token", "authorization",  "api_key", "secret", "credit_card"}
 
 
 def sanitize(data):

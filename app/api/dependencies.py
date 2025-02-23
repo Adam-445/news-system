@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.db import models
 from app.db.database import get_db
 from app.core.security import verify_access_token
-from app.core.errors import NotFoundError, PermissionDeniedError
+from app.core.errors import NotFoundError, PermissionDeniedError, UnauthorizedError
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -14,13 +14,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ) -> models.User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
 
-    token_data = verify_access_token(token, credentials_exception)
+    token_data = verify_access_token(
+        token, UnauthorizedError(detail="Could not validate credentials")
+    )
     # Eager load the role for quicker checks:
     user = (
         db.query(models.User)

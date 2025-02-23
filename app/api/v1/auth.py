@@ -1,16 +1,17 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Body, Cookie, Depends, status
+from fastapi.responses import JSONResponse
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
-from fastapi_limiter.depends import RateLimiter
 from sqlalchemy.orm import Session
 
+from app.core.redis import RedisManager
 from app.db import models
 import app.schemas as schemas
 import app.core.security as security
+from app.core.config import settings
 from app.db.database import get_db
 from app.crud.users import UserService
-from app.core.errors import ConflictError, UnauthorizedError
-from app.core.rate_limiting import strict_rate_limiter
+from app.core.errors import UnauthorizedError
+from app.core.rate_limiting import rate_limiter
 
 router = APIRouter()
 
@@ -145,13 +146,12 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
             },
         },
     },
-    # TODO: Implement RateLimiter to prevent brute-force attacks
-    dependencies=[Depends(strict_rate_limiter)]
+    dependencies=[Depends(rate_limiter(5, 60))],
 )
 def login(
     user_credentials: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
-) -> schemas.Token:
+) -> JSONResponse:
     """
     Authenticate user and return an access token.
     """
@@ -173,5 +173,78 @@ def login(
         data={"username": user.username, "role": user.role.name}
     )
 
-    # Return token
-    return schemas.Token(access_token=access_token, token_type="bearer")
+    # Generate refresh token
+    refresh_token = security.create_refresh_token(
+        data={"username": user.username, "role": user.role.name}
+    )
+
+    # Store refresh token in HTTP-only Secure Cookie
+    response = JSONResponse(
+        content={"access_token": access_token, "token_type": "bearer"}
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+    )
+
+    return response
+
+
+@router.post("/logout")
+async def logout(refresh_token: str = Cookie(None)):
+    if refresh_token:
+        # Decode to get JTI
+        token_data = await security.verify_refresh_token(refresh_token, UnauthorizedError(detail="Could not validate refresh token"))
+        jti = token_data.jti
+        await RedisManager.add_to_blacklist(jti, refresh_token)
+
+    response = JSONResponse(content={"message": "Logged out successfully"})
+    response.delete_cookie(key="refresh_token")
+    return response
+
+
+@router.post("/refresh", response_model=schemas.Token)
+async def refresh_token(
+    refresh_token: str = Cookie(None),
+    db: Session = Depends(get_db),
+):
+    if not refresh_token:
+        raise UnauthorizedError(detail="Missing refresh token")
+
+    # Validate refresh token
+    token_data = await security.verify_refresh_token(refresh_token, UnauthorizedError(detail="Could not validate refresh token"))
+    jti = token_data.jti
+
+    # Check if the refresh token is blacklisted
+    if await RedisManager.is_token_blacklisted(jti):
+        raise UnauthorizedError(detail="Token revoked")
+
+    # Generate new access token
+    new_access_token = security.create_access_token(
+        data={"username": token_data.username, "role": token_data.role}
+    )
+
+    # Issue a new refresh token and revoke old one
+    await RedisManager.add_to_blacklist(jti, refresh_token)
+
+    new_refresh_token = security.create_refresh_token(
+        data={"username": token_data.username, "role": token_data.role}
+    )
+
+
+    # Set new refresh token in HTTP-only cookie
+    response = JSONResponse(
+        content={"access_token": new_access_token, "token_type": "bearer"}
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+    )
+
+    return response

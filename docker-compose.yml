@@ -8,10 +8,12 @@ services:
       - backend
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - REDIS_URL=${REDIS_URL}/0
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail http://localhost:8000/health || exit 1"]
       interval: 30s
@@ -27,17 +29,15 @@ services:
     networks:
       - backend
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_SUPERUSER_PASSWORD}
-      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST_AUTH_METHOD: scram-sha-256
-      LANG: en_US.utf8
-      LC_ALL: en_US.utf8
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -60,6 +60,7 @@ services:
     mem_limit: 128m
     cpus: "0.25"
 
+
 volumes:
   postgres_data:
   redis_data:
@@ -67,7 +68,3 @@ volumes:
 networks:
   backend:
     driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.28.0.0/16

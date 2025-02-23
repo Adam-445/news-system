@@ -71,3 +71,4 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: str
     role: str
+    jti: Optional[str] = None

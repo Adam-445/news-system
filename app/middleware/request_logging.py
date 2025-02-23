@@ -19,22 +19,20 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
-        cid = correlation_id.get() or "none"
-
-        # Request started
-        logger.info(
-            f"{request.method} request to {request.url.path}",
-            extra={
-                "event_type": "request_started",
-                "path": request.url.path,
-                "method": request.method,
-                "correlation_id": cid,
-                "client": request.client.host if request.client else None,
-                "query_params": dict(request.query_params),
-            },
-        )
+        # Add critical request metadata to all logs
+        record_attrs = {
+            "path": request.url.path,
+            "method": request.method,
+            "client_ip": request.client.host if request.client else None,
+            "correlation_id": correlation_id.get() or "none",
+        }
 
         try:
+            # Request started
+            logger.info(
+                f"{request.method} request to {request.url.path}",
+                extra={"event_type": "request_started", **record_attrs},
+            )
             response = await call_next(request)
 
             # Get readable message
@@ -47,9 +45,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "event_type": "request_completed",
                     "status_code": response.status_code,
                     "status_phrase": HTTPStatus(response.status_code).phrase,
-                    "correlation_id": cid,
                     "processing_time": f"{time.time() - start_time:.4f}s",
                     "response_headers": dict(response.headers),
+                    **record_attrs,
                 },
             )
 
@@ -61,8 +59,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 extra={
                     "event_type": "request_failed",
                     "error_type": e.__class__.__name__,
-                    "correlation_id": cid,
                     "processing_time": f"{time.time() - start_time:.4f}s",
+                    **record_attrs,
                 },
             )
             raise

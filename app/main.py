@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -6,8 +7,9 @@ import logging
 from app.api.v1 import articles, users, auth, admin
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.core.rate_limiting import init_rate_limiter
 from app.core.errors import APIError, ServerError
+from app.core.redis import RedisManager
+from app.core.rate_limiting import init_limiter
 from app.middleware.correlation import CorrelationMiddleware, correlation_id
 from app.middleware.request_logging import RequestLoggingMiddleware
 from app.middleware.sanitization import SanitizationMiddleware
@@ -15,6 +17,12 @@ from app.middleware.sanitization import SanitizationMiddleware
 setup_logging()
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_limiter()
+    redis = await RedisManager.get_redis()
+    yield
+    await RedisManager.close_redis()
 
 app = FastAPI(
     title="News Recommendation System",
@@ -22,14 +30,9 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    lifespan=lifespan
     # dependencies=[Depends(get_rate_limiter(times=100, hours=1))],
 )
-
-
-@app.on_event("startup")
-async def startup():
-    await init_rate_limiter()
-
 
 # Log request with correlation ID
 app.add_middleware(RequestLoggingMiddleware)

@@ -1,17 +1,20 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
+import uuid
 from passlib.context import CryptContext
+import jwt
 
 from app.core.config import settings
 import app.schemas as schemas
-import jwt
+from app.core.errors import UnauthorizedError
+from app.core.redis import RedisManager
 
 
 # JWT configuration
 SECRET_KEY = settings.jwt_secret_key
-ALGORITHM = settings.algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
+ALGORITHM = settings.jwt_algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.jwt_access_token_expire_minutes
+REFRESH_TOKEN_EXPIRE_DAYS = settings.jwt_refresh_token_expire_days
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -33,8 +36,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_refresh_token(
+    data: dict, expires_delta: timedelta = timedelta(days=settings.jwt_refresh_token_expire_days)
+) -> str:
+    to_encode = data.copy()
+    to_encode["exp"] = datetime.now(timezone.utc) + expires_delta
+    to_encode["type"] = "refresh"
+    # JWTs are long strings, which increase Redis memory usage
+    to_encode["jti"] = str(uuid.uuid4())
+    print("JTI", to_encode["jti"])
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def verify_access_token(token: str, credentials_exception):
@@ -46,6 +60,26 @@ def verify_access_token(token: str, credentials_exception):
         if not username:
             raise credentials_exception
         token_data = schemas.TokenData(username=username, role=role)
+    except jwt.InvalidTokenError:
+        raise credentials_exception
+    return token_data
+
+
+async def verify_refresh_token(token: str, credentials_exception):
+    if await RedisManager.is_token_blacklisted(token):
+        raise credentials_exception
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise credentials_exception
+        username: str = payload.get("username")
+        role: str = payload.get("role")
+        jti: str = payload.get("jti")
+
+        if not username:
+            raise credentials_exception
+
+        token_data = schemas.TokenData(jti=jti, username=username, role=role)
     except jwt.InvalidTokenError:
         raise credentials_exception
     return token_data
