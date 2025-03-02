@@ -1,28 +1,44 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
 import logging
+from contextlib import asynccontextmanager
 
-from app.api.v1 import articles, users, auth, admin
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+from app.api.v1 import admin, articles, auth, users
 from app.core.config import settings
-from app.core.logging import setup_logging
 from app.core.errors import APIError, ServerError
-from app.core.redis import RedisManager
+from app.core.logging import logger, setup_logging
 from app.core.rate_limiting import init_limiter
+from app.core.redis import RedisManager
 from app.middleware.correlation import CorrelationMiddleware, correlation_id
 from app.middleware.request_logging import RequestLoggingMiddleware
 from app.middleware.sanitization import SanitizationMiddleware
 
 setup_logging()
-logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_limiter()
-    redis = await RedisManager.get_redis()
+    # Initialize rate limiter if not in test mode or if forced
+    if settings.environment != "test" or getattr(
+        app.state, "force_rate_limiter_init", False
+    ):
+        await init_limiter(is_test=(settings.environment == "test"), enabled=True)
+        logger.info("Rate limiter initialized.")
+    try:
+        redis = await RedisManager.get_redis(is_test=(settings.environment == "test"))
+        logger.info("Connected to Redis.")
+    except Exception as e:
+        logger.error("Error connecting to Redis.", exc_info=e)
+        raise
     yield
-    await RedisManager.close_redis()
+    try:
+        await RedisManager.close_redis()
+        logger.info("Redis connection closed.")
+    except Exception as e:
+        logger.error("Error closing Redis connection.", exc_info=e)
+
 
 app = FastAPI(
     title="News Recommendation System",
@@ -30,17 +46,17 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
     # dependencies=[Depends(get_rate_limiter(times=100, hours=1))],
 )
 
-# Log request with correlation ID
+# Middleware registration order matters (reverse order of execution):
+# - CorrelationMiddleware runs first (ensuring correlation ids are available)
+# - SanitizationMiddleware cleans sensitive data before logging
+# - RequestLoggingMiddleware logs the request
 app.add_middleware(RequestLoggingMiddleware)
-# Clean up sensitive data before logging
 app.add_middleware(SanitizationMiddleware)
-# Ensure correlation ids exist early
 app.add_middleware(CorrelationMiddleware)
-
 
 api_routers = [
     (auth.router, "/auth", ["Authentication"]),
@@ -61,13 +77,10 @@ for router, prefix, tags in api_routers:
         },
     )
 
-# FastAPI uses reverse registration order (last registered runs first)
-# We want specific handlers first, generic last
 
-
+# Exception handler for validation errors
 @app.exception_handler(RequestValidationError)
 async def handle_validation_error(request: Request, exc: RequestValidationError):
-    """Standardize validation error responses"""
     errors = [
         {
             "field": ".".join(map(str, err["loc"])),
@@ -76,7 +89,6 @@ async def handle_validation_error(request: Request, exc: RequestValidationError)
         }
         for err in exc.errors()
     ]
-
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -89,9 +101,9 @@ async def handle_validation_error(request: Request, exc: RequestValidationError)
     )
 
 
+# Centralized error handling for known API errors
 @app.exception_handler(APIError)
 async def handle_api_error(request: Request, exc: APIError):
-    """Centralized error handling for all known API errors"""
     error_content = exc.to_dict()
     error_content.update(
         {"path": request.url.path, "correlation_id": correlation_id.get()}
@@ -99,11 +111,11 @@ async def handle_api_error(request: Request, exc: APIError):
     return JSONResponse(status_code=exc.status_code, content=error_content)
 
 
+# Global exception handler for unexpected errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Fallback for unexpected errors"""
-    logger = logging.getLogger("app.error")
-    logger.critical(
+    error_logger = logging.getLogger("app.error")
+    error_logger.critical(
         "Unhandled exception",
         exc_info=exc,
         extra={
@@ -112,15 +124,16 @@ async def global_exception_handler(request: Request, exc: Exception):
             "correlation_id": correlation_id.get() or "none",
         },
     )
-
     server_error = ServerError(
         detail="An unexpected error occurred. Please try again later."
     )
-
+    # Explicitly merge dictionaries for clarity
+    content = server_error.to_dict()
+    content["path"] = request.url.path
+    content["correlation_id"] = correlation_id.get()
     return JSONResponse(
         status_code=server_error.status_code,
-        content=server_error.to_dict()
-        | {"path": request.url.path, "correlation_id": correlation_id.get()},
+        content=content,
     )
 
 
@@ -134,5 +147,4 @@ async def global_exception_handler(request: Request, exc: Exception):
     tags=["System"],
 )
 async def health_check() -> dict:
-    """Get API health status"""
     return {"status": "ok", "version": app.version, "environment": settings.environment}

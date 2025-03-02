@@ -3,15 +3,15 @@ from fastapi.responses import JSONResponse
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.core.redis import RedisManager
-from app.db import models
-import app.schemas as schemas
 import app.core.security as security
+import app.schemas as schemas
 from app.core.config import settings
-from app.db.database import get_db
-from app.crud.users import UserService
 from app.core.errors import UnauthorizedError
 from app.core.rate_limiting import rate_limiter
+from app.core.redis import RedisManager
+from app.crud.users import UserService
+from app.db import models
+from app.db.database import get_db
 
 router = APIRouter()
 

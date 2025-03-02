@@ -1,14 +1,14 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-import uuid
-from passlib.context import CryptContext
-import jwt
 
-from app.core.config import settings
+import jwt
+from passlib.context import CryptContext
+
 import app.schemas as schemas
+from app.core.config import settings
 from app.core.errors import UnauthorizedError
 from app.core.redis import RedisManager
-
 
 # JWT configuration
 SECRET_KEY = settings.jwt_secret_key

@@ -24,10 +24,6 @@ async def init_limiter(redis_client: Optional[Redis] = None, is_test: bool = Fal
         # Get Redis connection (test or production)
         redis_conn = redis_client or await RedisManager.get_redis(is_test=is_test)
 
-        # Only initialize if not in testing mode
-        # if not is_test:
-        #     # Initialize FastAPI rate limiter with custom identifier function
-        #     await FastAPILimiter.init(redis_conn, identifier=get_identifier)
         await FastAPILimiter.init(redis_conn, identifier=get_identifier)
     except Exception as e:
         raise RuntimeError(f"Rate limiter initialization failed: {str(e)}") from e
@@ -81,4 +77,4 @@ async def rate_limit_callback(request: Request, response: Response, pexpire: int
     Raises:
         RateLimitError: Custom exception indicating rate limit violation.
     """
-    raise RateLimitError(request, response, pexpire)
+    raise RateLimitError(retry_after=pexpire, request=request, response=response)

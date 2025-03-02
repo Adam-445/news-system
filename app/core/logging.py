@@ -1,7 +1,9 @@
+import logging
 import os
-from logging.config import dictConfig
-from pythonjsonlogger import jsonlogger
 from datetime import datetime, timezone
+from logging.config import dictConfig
+
+from pythonjsonlogger import jsonlogger
 
 from app.core.config import settings
 from app.middleware.correlation import correlation_id
@@ -97,3 +99,8 @@ def setup_logging():
     }
 
     dictConfig(LOGGING_CONFIG)
+
+
+setup_logging()
+
+logger = logging.getLogger("app")

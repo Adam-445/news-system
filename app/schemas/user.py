@@ -2,8 +2,6 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, UUID4, ConfigDict, field_validator
 from typing import Optional
 
-from app.core.errors import BadRequestError
-
 
 class UserBase(BaseModel):
     username: str

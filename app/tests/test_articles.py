@@ -1,3 +1,4 @@
+from uuid import uuid4
 from fastapi import status
 
 from app.db import models
@@ -36,13 +37,15 @@ def test_get_articles(client, moderator_headers, regular_headers):
 
 def test_get_article_by_id(client, moderator_headers, regular_headers):
     # Create test article first
-    client.post(
+    posted_article = client.post(
         "/api/v1/articles/",
         json={"title": "Test", "content": "Content", "url": "https://test.com"},
         headers=moderator_headers,
     )
+    print("posted_article", posted_article.json())
 
-    response = client.get("/api/v1/articles/1", headers=regular_headers)
+    posted_article_id = posted_article.json()["id"]
+    response = client.get(f"/api/v1/articles/{posted_article_id}", headers=regular_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["title"] == "Test"
@@ -51,19 +54,20 @@ def test_get_article_by_id(client, moderator_headers, regular_headers):
 
 
 def test_article_not_found(client, regular_headers):
-    response = client.get("/api/v1/articles/9999", headers=regular_headers)
+    invalid_id = uuid4()
+    response = client.get(f"/api/v1/articles/{invalid_id}", headers=regular_headers)
     assert response.status_code == 404
-    assert "No article found with ID 9999" in response.json()["detail"]
+    assert "Article not found with identifier" in response.json()["detail"]
 
 
 def test_invalid_article_id(client, regular_headers):
-    # Non-integer id
+    # Non-UUID id
     response = client.get("/api/v1/articles/invalid_id", headers=regular_headers)
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-    # Negative id
-    response = client.get("/api/v1/articles/-1", headers=regular_headers)
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    
+    # Integer id
+    response = client.get("/api/v1/articles/123", headers=regular_headers)
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_article_pagination(client, moderator_headers):
@@ -164,9 +168,7 @@ def test_invalid_sort_parameters(client, moderator_headers):
         params={"sort_by": "invalid_column", "order": "desc"},
         headers=moderator_headers,
     )
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert isinstance(data, list)
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_scrape_articles_permissions(client, regular_headers, moderator_headers):
@@ -286,4 +288,5 @@ def test_admin_can_delete_article(
 
     # Verify non-existence for regular users
     response = client.get(f"/api/v1/articles/{article['id']}", headers=regular_headers)
+    print("response", response.json())
     assert response.status_code == status.HTTP_404_NOT_FOUND

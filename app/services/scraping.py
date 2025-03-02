@@ -1,32 +1,76 @@
-import httpx
-from app.core.config import settings
+import asyncio
+import json
 import logging
 
-api_key = settings.api_key
-page_size = 50
-url = f"https://newsapi.org/v2/top-headlines?language=en&pageSize={page_size}&apiKey={api_key}"
+import httpx
 
-logger = logging.getLogger(__name__)
+from app.core.config import settings
+from app.core.logging import logger
 
-async def scrape_via_api():
+# logger = logging.getLogger(__name__)
+
+
+API_KEY = settings.api_key
+BASE_URL = "https://newsapi.org/v2/top-headlines"
+PAGE_SIZE = 50  # Max results per request
+
+async def scrape_via_api(max_pages: int = 3) -> list[dict[str, any]]:
+    """
+    Fetches articles from the news API with pagination.
+
+    Args:
+        max_pages (int): The maximum number of pages to fetch.
+
+    Returns:
+        list: A list of articles retrieved from the API.
+    """
+    if not API_KEY:
+        logger.error("API key is missing! Check your settings.")
+        return []
+
+    all_articles = []
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            all_articles = response.json().get("articles", [])
+            for page in range(1, max_pages + 1):
+                params = {
+                    "language": "en",
+                    "pageSize": PAGE_SIZE,
+                    "page": page,
+                    "apiKey": API_KEY,
+                }
 
-        if not all_articles:
-            logger.warning("No articles found in API response.")
+                response = await client.get(BASE_URL, params=params)
+                response.raise_for_status()
 
-        logger.info("Fetched %d articles", len(all_articles))
-        return all_articles  # Return raw data for processing elsewhere
+                try:
+                    data = response.json()
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse JSON response")
+                    return []
+
+                articles = data.get("articles", [])
+                if not articles:
+                    logger.warning("No articles found on page %d", page)
+                    break
+
+                all_articles.extend(articles)
+
+                logger.info("Fetched %d articles from page %d", len(articles), page)
+
+                # Handle rate limits (if API returns `Retry-After` header)
+                if "Retry-After" in response.headers:
+                    retry_after = int(response.headers["Retry-After"])
+                    logger.warning("Rate limit reached. Retrying after %d seconds...", retry_after)
+                    await asyncio.sleep(retry_after)
+                    # Retry the current page
+                    continue
 
     except httpx.TimeoutException:
         logger.error("Request to news API timed out")
-        return []
     except httpx.HTTPStatusError as e:
-        logger.error("Error fetching news articles: %s", e)
-        return []
+        logger.error("HTTP error fetching news articles: %s", e)
     except Exception as e:
         logger.error("Unexpected error: %s", e)
-        return []
+
+    return all_articles

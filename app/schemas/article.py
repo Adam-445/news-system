@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, ConfigDict, field_validator
+from pydantic import BaseModel, Field, HttpUrl, ConfigDict, field_validator, UUID4
 from typing import Optional, List
 
 
@@ -21,7 +21,7 @@ class ArticleCreate(ArticleBase):
 
 
 class ArticleResponse(ArticleBase):
-    id: int
+    id: UUID4
     views: int
     is_deleted: bool
     created_at: datetime

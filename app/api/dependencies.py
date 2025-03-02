@@ -1,12 +1,13 @@
 from typing import List
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.errors import NotFoundError, PermissionDeniedError, UnauthorizedError
+from app.core.security import verify_access_token
 from app.db import models
 from app.db.database import get_db
-from app.core.security import verify_access_token
-from app.core.errors import NotFoundError, PermissionDeniedError, UnauthorizedError
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -21,6 +22,7 @@ async def get_current_user(
     # Eager load the role for quicker checks:
     user = (
         db.query(models.User)
+        .options(joinedload(models.User.role).joinedload(models.Role.permissions))
         .filter(models.User.username == token_data.username)
         .first()
     )

@@ -67,7 +67,7 @@ def test_change_role_invalid_user_id(client, admin_headers):
 
 def test_change_role_invalid_role(client, admin_headers, test_user):
     response = client.put(
-        f"/api/v1/admin/users/{test_user["id"]}/roles",
+        f"/api/v1/admin/users/{test_user['id']}/roles",
         json={"role": "invalid_role"},
         headers=admin_headers,
     )
@@ -146,11 +146,7 @@ def test_role_propagation(client, admin_headers):
 
     # Test new permissions
     headers = {
-        "Authorization": f"Bearer {client.post('/api/v1/auth/login', data={
-        'username': 'promote_me',
-        'password': 'TestPass123!'
-    }).json()['access_token']}"
-    }
+        "Authorization": f"Bearer {client.post('/api/v1/auth/login', data={'username': 'promote_me','password': 'TestPass123!'}).json()['access_token']}"}
 
     response = client.post(
         "/api/v1/articles/",
@@ -175,4 +171,4 @@ def test_create_duplicate_permission(client, admin_headers):
         headers=admin_headers,
     )
     assert response.status_code == 409
-    assert "Permission conflict" in response.json()["error"]
+    assert "conflict" in response.json()["code"]

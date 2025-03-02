@@ -1,12 +1,14 @@
 from typing import List
-from fastapi import APIRouter, Depends, status, BackgroundTasks, Response, Query
+from uuid import UUID
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
-from app.db.database import get_db
 import app.schemas as schemas
-from app.crud.articles import ArticleService
 from app.api.dependencies import get_current_user, required_roles
+from app.crud.articles import ArticleService
 from app.db import models
+from app.db.database import get_db
 from app.services.recommendation import get_personalized_recommendation
 
 router = APIRouter()
@@ -71,7 +73,7 @@ def create_article(
     responses={404: {"description": "Article not found."}},
 )
 def get_article(
-    id: int,
+    id: UUID,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -90,7 +92,7 @@ def get_article(
     },
 )
 def delete_article(
-    id: int,
+    id: UUID,
     current_user: models.User = Depends(required_roles(["admin", "moderator"])),
     db: Session = Depends(get_db),
 ):
@@ -105,7 +107,7 @@ def delete_article(
     responses={404: {"description": "Article not found."}},
 )
 def update_article(
-    id: int,
+    id: UUID,
     new_article: schemas.ArticleUpdate,
     current_user: models.User = Depends(required_roles(["admin", "moderator"])),
     db: Session = Depends(get_db),

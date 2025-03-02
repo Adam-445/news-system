@@ -21,15 +21,15 @@ def test_search_users_by_email(client, admin_headers):
 
 def test_admin_delete_user(client, admin_headers):
     # Create temporary user to delete
-    user = client.post(
+    response = client.post(
         "/api/v1/auth/signup",
         json={
             "email": "temp@example.com",
             "username": "tempuser",
             "password": "TempPass123!",
         },
-    ).json()
-
+    )
+    user = response.json()
     response = client.delete(f"/api/v1/users/{user['id']}", headers=admin_headers)
     assert response.status_code == status.HTTP_204_NO_CONTENT
 
