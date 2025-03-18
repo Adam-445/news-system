@@ -8,7 +8,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import schemas
-from app.core.errors import BadRequestError, ConflictError, NotFoundError, ServerError
+from app.core.errors import (BadRequestError, ConflictError, NotFoundError,
+                             ServerError)
 from app.core.logging import logger
 from app.db import models
 from app.services.scraping import scrape_via_api
@@ -89,17 +90,9 @@ class ArticleService:
 
     @staticmethod
     def get_article_by_id(db: Session, article_id: UUID) -> models.Article:
-        # Atomic operation: Update and return in single query
-        stmt = (
-            update(models.Article)
-            .where(models.Article.id == article_id)
-            .values(views=models.Article.views + 1)
-            .returning(models.Article)
-        )
-
-        article = db.execute(stmt).scalar_one_or_none()
-        db.commit()
-
+        article = db.execute(
+            select(models.Article).where(models.Article.id == article_id)
+        ).scalar_one_or_none()
         if not article:
             raise NotFoundError(resource="article", identifier=article_id)
 

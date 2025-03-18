@@ -18,6 +18,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             return "Unknown Status"
 
     async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/health":
+            return await call_next(request)
+
         start_time = time.time()
         # Add critical request metadata to all logs
         record_attrs = {

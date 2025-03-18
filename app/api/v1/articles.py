@@ -2,14 +2,18 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Response, status
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 import app.schemas as schemas
 from app.api.dependencies import get_current_user, required_roles
+from app.core.logging import logger
+from app.core.redis import RedisManager
 from app.crud.articles import ArticleService
 from app.db import models
 from app.db.database import get_db
 from app.services.recommendation import get_personalized_recommendation
+from app.services.view_tracker import ViewTracker, view_tracker
 
 router = APIRouter()
 
@@ -20,7 +24,7 @@ router = APIRouter()
     summary="Search Articles",
     description="Fetch articles with filters and pagination.",
 )
-def get_articles(
+async def get_articles(
     response: Response,
     filters: schemas.ArticleFilters = Depends(),
     skip: int = Query(0, ge=0, description="Number of records to skip for pagination"),
@@ -32,6 +36,7 @@ def get_articles(
     articles, article_count = ArticleService.search_articles(
         db, filters=filters, skip=skip, limit=limit
     )
+
     response.headers["X-Total-Count"] = str(article_count)
     return articles
 
@@ -72,12 +77,34 @@ def create_article(
     description="Fetch a single article by its ID. Returns a 404 if not found.",
     responses={404: {"description": "Article not found."}},
 )
-def get_article(
+async def get_article(
     id: UUID,
+    view_tracker: ViewTracker = Depends(lambda: view_tracker),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ArticleService.get_article_by_id(db, id)
+    cache_key = f"article:{id}"
+
+    # Track view first to prioritize responsiveness
+    await view_tracker.increment(id)
+
+    # Check cache first
+    cached_article = await RedisManager.get_cached_response(cache_key)
+
+    if cached_article:
+        # Add approximate views to cached response
+        current_views = await RedisManager.get_counter(f"views:{id}")
+        return {**cached_article, "views": cached_article["views"] + int(current_views)}
+
+    # Fetch from DB if not found in cache
+    article = ArticleService.get_article_by_id(db, id)
+    article_dict = jsonable_encoder(article)
+
+    # Convert to serializable format and cache if not deleted
+    if not article.is_deleted:
+        await RedisManager.cache_response(cache_key, article_dict, expire=600)
+
+    return article_dict
 
 
 @router.delete(
@@ -91,11 +118,12 @@ def get_article(
         404: {"description": "Article not found."},
     },
 )
-def delete_article(
+async def delete_article(
     id: UUID,
     current_user: models.User = Depends(required_roles(["admin", "moderator"])),
     db: Session = Depends(get_db),
 ):
+    await RedisManager.delete_cache(f"article:{id}")
     ArticleService.delete_article(db, id)
 
 
@@ -106,12 +134,13 @@ def delete_article(
     description="Update an existing article by ID. **Requires Admin/Moderator privileges.**",
     responses={404: {"description": "Article not found."}},
 )
-def update_article(
+async def update_article(
     id: UUID,
     new_article: schemas.ArticleUpdate,
     current_user: models.User = Depends(required_roles(["admin", "moderator"])),
     db: Session = Depends(get_db),
 ):
+    await RedisManager.delete_cache(f"article:{id}")
     return ArticleService.update_article(db, id, new_article)
 
 
@@ -127,5 +156,9 @@ async def scrape_and_store_articles(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    # Wildcard deletion of all article
+    deleted = await RedisManager.delete_cache("article:*")
+    logger.info(f"Cleared {deleted} cached articles")
+
     background_tasks.add_task(ArticleService.save_articles_to_db, db)
     return {"message": "Scraping initiated. Articles will be stored shortly."}

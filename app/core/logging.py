@@ -82,15 +82,15 @@ def setup_logging():
             },
             "uvicorn": {
                 "handlers": ["console", "file"],
-                "level": "INFO",
+                "level": "WARNING",
                 "propagate": False,
             },
             "uvicorn.access": {
                 "handlers": ["console", "file"],
-                "level": "INFO",
+                "level": "WARNING",
                 "propagate": False,
             },
-            "uvicorn.error": {"level": "INFO", "propagate": False},
+            "uvicorn.error": {"level": "WARNING", "propagate": False},
         },
         "root": {
             "handlers": ["console", "file"],

@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
 from uuid import UUID
 
-from app.db.database import get_db
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+
 from app import schemas
 from app.api.dependencies import required_roles
+from app.core.errors import ConflictError, NotFoundError
+from app.core.redis import RedisManager
 from app.db import models
-from app.core.errors import NotFoundError, ConflictError
+from app.db.database import get_db
 
 router = APIRouter()
 
@@ -72,3 +74,13 @@ def create_permission(
     db.commit()
     db.refresh(new_perm)
     return new_perm
+
+@router.get("/cache-stats")
+async def get_cache_stats():
+    redis = await RedisManager.get_redis()
+    data ={
+        "total_keys": await redis.dbsize(),
+        "all_keys": await redis.keys("*"),
+        "article_keys": await redis.keys("cache:article:*")
+    }
+    return data

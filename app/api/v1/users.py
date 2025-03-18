@@ -137,8 +137,8 @@ def undelete_user(
 def update_user(
     id: UUID,
     new_user: schemas.UserUpdate,
-    db: Session = Depends(get_db),
     current_user: models.User = Depends(required_roles(["admin", "moderator"])),
+    db: Session = Depends(get_db),
 ):
     return UserService.update_user(db, id, new_user)
 

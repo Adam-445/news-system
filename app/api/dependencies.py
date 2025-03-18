@@ -22,7 +22,8 @@ async def get_current_user(
     # Eager load the role for quicker checks:
     user = (
         db.query(models.User)
-        .options(joinedload(models.User.role).joinedload(models.Role.permissions))
+        .options(joinedload(models.User.role))
+        # .options(joinedload(models.User.role).joinedload(models.Role.permissions))
         .filter(models.User.username == token_data.username)
         .first()
     )
@@ -40,6 +41,17 @@ def required_roles(allowed_roles: List[str]):
         return user
 
     return role_checker
+
+# def required_roles(allowed_roles: List[str]):
+#     def dependency(
+#         current_user: models.User = Depends(get_current_user),  # Explicit auth first
+#         db: Session = Depends(get_db)
+#     ):
+#         if current_user.role.name not in allowed_roles:
+#             raise PermissionDeniedError(action=f"access this endpoint")
+#         return current_user
+    
+#     return dependency
 
 
 def required_permissions(required_permission: str):
