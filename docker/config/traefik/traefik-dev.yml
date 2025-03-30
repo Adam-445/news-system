@@ -3,7 +3,7 @@ global:
   sendAnonymousUsage: false
 
 log:
-  level: ERROR
+  level: DEBUG
 
 api:
   dashboard: true
@@ -12,9 +12,8 @@ api:
 entryPoints:
   web:
     address: ":80"
-  traefik:
-    address: ":8080"
 
 providers:
   docker:
     exposedByDefault: false
+    network: backend

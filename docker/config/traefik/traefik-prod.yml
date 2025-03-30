@@ -1,0 +1,25 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  level: ERROR
+
+api:
+  dashboard: false
+  insecure: false
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  docker:
+    network: backend
+    exposedByDefault: false
+
+  swarm:
+    network: backend
+    exposedByDefault: false
+    endpoint: "unix:///var/run/docker.sock"
+    watch: true

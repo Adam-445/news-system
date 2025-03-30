@@ -42,7 +42,12 @@ RUN addgroup --system --gid 1001 app \
 COPY --from=builder --chown=app:app /opt/venv /opt/venv
 COPY --chown=app:app . .
 
-# Set correct permissions
+# Create logs directory with proper permissions
+RUN mkdir -p /app/logs && \
+    chown -R app:app /app && \
+    chmod -R 755 /app/logs      
+
+# Set correct permissions for the rest of the app
 RUN chmod 755 /app && \
     find /app -type d -exec chmod 755 {} + && \
     find /app -type f -exec chmod 644 {} +

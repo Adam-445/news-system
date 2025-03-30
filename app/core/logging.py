@@ -40,10 +40,32 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 
 def setup_logging():
     log_dir = "logs"
-    os.makedirs(log_dir, exist_ok=True)
 
     log_format = settings.log_format.lower()
     log_level = settings.log_level.upper()
+
+    # Define the console handler (always used)
+    handlers = {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json" if log_format == "json" else "simple",
+            "stream": "ext://sys.stdout",
+        },
+    }
+
+    if settings.environment != "production":
+        # Ensure the directory exists
+        os.makedirs(log_dir, exist_ok=True)
+
+        # Add file handler for non-production environments
+        handlers["file"] = {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": os.path.join(log_dir, "app.log"),
+            "maxBytes": 10 * 1024 * 1024,  # 10MB
+            "backupCount": 5,
+            "formatter": "json" if log_format == "json" else "simple",
+            "encoding": "utf8",
+        }
 
     LOGGING_CONFIG = {
         "version": 1,
@@ -59,41 +81,31 @@ def setup_logging():
                 "datefmt": "%Y-%m-%d %H:%M:%S %z",
             },
         },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "json" if log_format == "json" else "simple",
-                "stream": "ext://sys.stdout",
-            },
-            "file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": os.path.join(log_dir, "app.log"),
-                "maxBytes": 10 * 1024 * 1024,  # 10MB
-                "backupCount": 5,
-                "formatter": "json" if log_format == "json" else "simple",
-                "encoding": "utf8",
-            },
-        },
+        "handlers": handlers,
         "loggers": {
             "app": {
-                "handlers": ["console", "file"],
+                "handlers": list(handlers.keys()),
                 "level": log_level,
                 "propagate": False,
             },
             "uvicorn": {
-                "handlers": ["console", "file"],
+                "handlers": list(handlers.keys()),
                 "level": "WARNING",
                 "propagate": False,
             },
             "uvicorn.access": {
-                "handlers": ["console", "file"],
+                "handlers": list(handlers.keys()),
                 "level": "WARNING",
                 "propagate": False,
             },
-            "uvicorn.error": {"level": "WARNING", "propagate": False},
+            "uvicorn.error": {
+                "handlers": list(handlers.keys()),
+                "level": "WARNING", 
+                "propagate": False
+            },
         },
         "root": {
-            "handlers": ["console", "file"],
+            "handlers": list(handlers.keys()),
             "level": log_level,
         },
     }
@@ -101,6 +113,6 @@ def setup_logging():
     dictConfig(LOGGING_CONFIG)
 
 
+# Initialize logging when the module is imported.
 setup_logging()
-
 logger = logging.getLogger("app")

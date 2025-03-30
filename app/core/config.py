@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 1
 
     api_key: str
-    environment: str = "development"
+    environment: str = "production"
     log_level: str = "INFO"
     log_format: str = "json"
 
