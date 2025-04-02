@@ -1,76 +1,116 @@
 import asyncio
+import random
 import json
-import logging
+from typing import List, Dict
 
 import httpx
+from celery import Task
+from sqlalchemy.orm import Session
 
+from app.core.celery import celery
 from app.core.config import settings
 from app.core.logging import logger
-
-# logger = logging.getLogger(__name__)
-
+from app.crud.articles import ArticleService
+from app.db.database import get_db
 
 API_KEY = settings.api_key
 BASE_URL = "https://newsapi.org/v2/top-headlines"
-PAGE_SIZE = 50  # Max results per request
+PAGE_SIZE = 50
+MAX_RETRIES = 3
+BASE_RETRY_DELAY = 2  # Base delay in seconds
 
-async def scrape_via_api(max_pages: int = 3) -> list[dict[str, any]]:
-    """
-    Fetches articles from the news API with pagination.
 
-    Args:
-        max_pages (int): The maximum number of pages to fetch.
+class ScrapingError(Exception):
+    """Custom exception for scraping-related errors"""
 
-    Returns:
-        list: A list of articles retrieved from the API.
-    """
+    def __init__(self, message: str, recoverable: bool = True):
+        self.recoverable = recoverable
+        super().__init__(message)
+
+
+def calculate_retry_delay(retries: int) -> int:
+    """Calculate exponential backoff with jitter"""
+    jitter = random.uniform(0.9, 1.1)  # ±10% jitter
+    return int((BASE_RETRY_DELAY**retries) * jitter)
+
+
+async def fetch_page(client: httpx.AsyncClient, page: int) -> List[Dict]:
+    """Fetch a single page of articles"""
+    try:
+        response = await client.get(
+            BASE_URL,
+            params={
+                "language": "en",
+                "pageSize": PAGE_SIZE,
+                "page": page,
+                "apiKey": API_KEY,
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        return response.json().get("articles", [])
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 429:
+            retry_after = int(e.response.headers.get("Retry-After", 5))
+            raise ScrapingError(f"Rate limited. Retry after {retry_after}s", True)
+        raise ScrapingError(f"HTTP error {e.response.status_code}", False)
+    except json.JSONDecodeError:
+        raise ScrapingError("Invalid JSON response", False)
+
+
+async def scrape_via_api(max_pages: int = 3) -> List[Dict]:
+    """Main scraping logic with error handling"""
     if not API_KEY:
-        logger.error("API key is missing! Check your settings.")
-        return []
+        raise ScrapingError("API key is missing", False)
 
     all_articles = []
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            for page in range(1, max_pages + 1):
-                params = {
-                    "language": "en",
-                    "pageSize": PAGE_SIZE,
-                    "page": page,
-                    "apiKey": API_KEY,
-                }
-
-                response = await client.get(BASE_URL, params=params)
-                response.raise_for_status()
-
-                try:
-                    data = response.json()
-                except json.JSONDecodeError:
-                    logger.error("Failed to parse JSON response")
-                    return []
-
-                articles = data.get("articles", [])
+    async with httpx.AsyncClient() as client:
+        for page in range(1, max_pages + 1):
+            try:
+                articles = await fetch_page(client, page)
                 if not articles:
-                    logger.warning("No articles found on page %d", page)
                     break
-
                 all_articles.extend(articles)
-
-                logger.info("Fetched %d articles from page %d", len(articles), page)
-
-                # Handle rate limits (if API returns `Retry-After` header)
-                if "Retry-After" in response.headers:
-                    retry_after = int(response.headers["Retry-After"])
-                    logger.warning("Rate limit reached. Retrying after %d seconds...", retry_after)
-                    await asyncio.sleep(retry_after)
-                    # Retry the current page
-                    continue
-
-    except httpx.TimeoutException:
-        logger.error("Request to news API timed out")
-    except httpx.HTTPStatusError as e:
-        logger.error("HTTP error fetching news articles: %s", e)
-    except Exception as e:
-        logger.error("Unexpected error: %s", e)
-
+                logger.info(f"Fetched {len(articles)} articles from page {page}")
+            except ScrapingError as e:
+                if not e.recoverable:
+                    raise
+                await asyncio.sleep(5)  # Wait before retrying
     return all_articles
+
+@celery.task(
+    bind=True,
+    queue="scraping_queue",
+    autoretry_for=(ScrapingError,),
+    retry_backoff=True,
+    retry_jitter=True,
+    max_retries=MAX_RETRIES
+)
+def scrape_articles_task(self: Task) -> Dict:
+    """Celery task to handle article scraping and saving"""
+    db: Session = next(get_db())
+    try:
+        articles_data = asyncio.run(scrape_via_api())
+
+        if not articles_data:
+            logger.warning("No articles to save")
+            return {"count": 0}
+
+        # Synchronous database operation
+        result = ArticleService.save_articles_to_db(db, articles_data)
+        db.commit()
+        logger.info(f"Successfully saved {result.get('saved', 0)} articles")
+        return result
+
+    except ScrapingError as e:
+        logger.error(f"Scraping failed: {str(e)}")
+        db.rollback()
+        self.retry(exc=e, countdown=calculate_retry_delay(self.request.retries))
+    except Exception as e:
+        logger.exception("Unexpected error occurred")
+        db.rollback()
+        self.retry(exc=e, countdown=calculate_retry_delay(self.request.retries))
+    finally:
+        db.close()
+
+    return {"error": "Task failed after maximum retries"}

@@ -12,7 +12,6 @@ from app.core.errors import (BadRequestError, ConflictError, NotFoundError,
                              ServerError)
 from app.core.logging import logger
 from app.db import models
-from app.services.scraping import scrape_via_api
 
 
 class ArticleService:
@@ -138,14 +137,8 @@ class ArticleService:
         return article
 
     @staticmethod
-    async def save_articles_to_db(db: Session) -> int:
-        """Fetches articles via API and saves them to the database."""
-        try:
-            articles_data = await scrape_via_api()
-        except Exception as e:
-            logger.error("Failed to fetch articles: %s", e)
-            raise ServerError("Failed to fetch articles") from e
-
+    def save_articles_to_db(db: Session, articles_data: list[dict]) -> dict:
+        """Recieves articles and saves them to the database."""
         valid_articles = []
         validation_errors = 0
 
@@ -175,7 +168,7 @@ class ArticleService:
 
         if not valid_articles:
             logger.info("No valid articles to save")
-            return 0
+            return {"saved": 0, "errors": validation_errors}
 
         try:
             stmt = insert(models.Article).values(valid_articles)
@@ -196,7 +189,7 @@ class ArticleService:
                 len(valid_articles),
                 validation_errors,
             )
-            return len(valid_articles)
+            return {"saved": len(valid_articles), "errors": validation_errors}
 
         except SQLAlchemyError as e:
             logger.error("Database error: %s", e, exc_info=True)

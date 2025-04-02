@@ -13,6 +13,7 @@ from app.crud.articles import ArticleService
 from app.db import models
 from app.db.database import get_db
 from app.services.recommendation import get_personalized_recommendation
+from app.services.scraping import scrape_articles_task
 from app.services.view_tracker import ViewTracker, view_tracker
 
 router = APIRouter()
@@ -160,5 +161,8 @@ async def scrape_and_store_articles(
     deleted = await RedisManager.delete_cache("article:*")
     logger.info(f"Cleared {deleted} cached articles")
 
-    background_tasks.add_task(ArticleService.save_articles_to_db, db)
-    return {"message": "Scraping initiated. Articles will be stored shortly."}
+    task = scrape_articles_task.apply_async()
+    return {
+        "message": "Scraping task initiated.",
+        "monitor": f"/api/v1/tasks/{task.id}/status"
+    }
