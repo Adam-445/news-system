@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     postgresql-client \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
@@ -45,7 +46,7 @@ COPY --chown=app:app . .
 # Create logs directory with proper permissions
 RUN mkdir -p /app/logs && \
     chown -R app:app /app && \
-    chmod -R 755 /app/logs      
+    chmod 755 /app/logs
 
 # Set correct permissions for the rest of the app
 RUN chmod 755 /app && \
@@ -56,11 +57,9 @@ USER app
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \
-    PYTHONPATH=/app:$PYTHONPATH \
+    PYTHONPATH=/app/app \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1
+    PYTHONUNBUFFERED=1
 
 # Expose application port
 EXPOSE 8000

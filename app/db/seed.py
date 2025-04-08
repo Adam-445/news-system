@@ -98,9 +98,9 @@ def main():
         exc.OperationalError: If database remains unreachable after retries.
     """
     # Prevent accidental modifications in production
-    if settings.environment not in {"development", "ci", "staging"}:
-        logger.warning("Production seeding disabled")
-        return
+    # if settings.environment not in {"development", "ci", "staging"}:
+    #     logger.warning("Production seeding disabled")
+    #     return
 
     # Number of retry attempts for transient failures
     max_retries = 3

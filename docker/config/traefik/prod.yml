@@ -6,20 +6,15 @@ log:
   level: ERROR
 
 api:
-  dashboard: false
-  insecure: false
+  dashboard: true
+  # insecure: false  # Keep false and use authentication if exposing dashboard
 
 entryPoints:
   web:
     address: ":80"
 
 providers:
-  docker:
-    network: backend
-    exposedByDefault: false
-
   swarm:
     network: backend
     exposedByDefault: false
-    endpoint: "unix:///var/run/docker.sock"
     watch: true
