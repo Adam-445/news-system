@@ -32,7 +32,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     postgresql-client \
-    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
@@ -57,7 +56,7 @@ USER app
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \
-    PYTHONPATH=/app/app \
+    PYTHONPATH=/app/backend:/app \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
@@ -65,4 +64,4 @@ ENV PATH="/opt/venv/bin:$PATH" \
 EXPOSE 8000
 
 # Start the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
