@@ -62,20 +62,6 @@ See [docs/configuration.md](docs/configuration.md) for details on environment va
 
 - The application code is auto-reloaded in development mode.
 - Logs are stored in the `logs/` directory.
-
-## Security Best Practices
-
-See [docs/security.md](docs/security.md) for security recommendations.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-```
-
-### **Additional Documentation Files**
-#### **docs/configuration.md**
-Contains detailed environment variable descriptions.
-
 #### **docs/database.md**
 Describes database management, migrations, and PgAdmin setup.
 
