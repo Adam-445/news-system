@@ -1,83 +1,107 @@
-# News Analyzer API
+**News Recommendation System**
 
-A FastAPI-based news analysis service with PostgreSQL storage and Redis caching.
+A scalable, containerized news recommendation API built with FastAPI, PostgreSQL, Redis, and Celery. This project ingests articles, tracks user views in real time, and serves personalized recommendations based on user preferences and article metadata.
+
+---
 
 ## Features
 
-- RESTful API for news analysis
-- JWT Authentication
-- PostgreSQL database integration
-- Redis caching layer
-- Dockerized development
-- Automated database migrations
-- PgAdmin for database administration
+* **User Authentication & Authorization**: JWT-based auth with role-based access control (admin/user).
+* **Article Management**: CRUD endpoints for articles with indexing for efficient queries.
+* **Personalization & Preferences**: Users can save articles and set preferences for categories and sources.
+* **Real-Time View Tracking**: In-memory, Redis-buffered, and periodic flush to PostgreSQL for view counts.
+* **Recommendation Engine**: Simple content-based recommendations via `RecommendationService`.
+* **Background Tasks**: Celery workers for scraping, data processing, and asynchronous jobs.
+* **Rate Limiting**: IP- and user-based rate limiting using FastAPI-Limiter and Redis.
+* **Containerized Deployment**: Docker Compose for development and Docker Swarm stack for production.
+* **Database Migrations**: Alembic for versioned schema migrations.
+* **Comprehensive Testing**: Pytest suite covering auth, articles, middleware, RBAC, and error handling.
 
-## Prerequisites
+---
 
-Ensure you have the following installed:
+## Tech Stack
 
-- **Docker** 20.10+
-- **Docker Compose** 2.0+
-- **Python** 3.11+ (for local development)
+* **Language & Framework**: Python 3.13, FastAPI
+* **Database**: PostgreSQL 17
+* **Caching & Broker**: Redis 7
+* **Task Queue**: Celery with Redis broker
+* **Migrations**: Alembic
+* **Containerization**: Docker, Docker Compose, Docker Swarm, Traefik
+* **Testing**: Pytest, pytest-asyncio
 
-## Quick Start
+---
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Adam-445/news-project.git
-cd news-analyzer
-```
+## Getting Started
 
-### 2. Set Up Environment Variables
-Copy the example `.env` file and update credentials:
+### Prerequisites
+
+* Docker & Docker Compose
+* (Optional) Python 3.13 and pip for local development
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and update values:
+
 ```bash
 cp .env.example .env
+# then edit .env
 ```
 
-### 3. Build and Start Services
+### Development Setup
+
+1. Build and start services:
+
 ```bash
-docker-compose up -d --build
+
+docker-compose up --build
+
 ```
 
-### 4. Seed the Database
+2. Apply database migrations:
+  
+  ```bash
+  docker-compose exec app alembic upgrade head
+  ````
+
+3. Seed initial data (admin user, roles, permissions):
+
+  ```bash
+  
+  docker-compose exec app python backend/scripts/seed_data.py
+  
+  ````
+
+4. Access the API docs at `http://localhost:8000/api/docs`.
+
+### Running Tests
+
 ```bash
-docker-compose exec app python /app/app/db/seed.py
+docker-compose exec app pytest --cov
+````
+
+---
+
+## Production Deployment
+
+Use the `docker-stack.yml` for a Swarm cluster:
+
+```bash
+docker swarm init
+docker stack deploy -c docker-stack.yml news-stack
 ```
 
-### 5. Access Services
-- **API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **PgAdmin**: [http://localhost:5050](http://localhost:5050)
-- **Redis CLI**: `docker-compose exec redis redis-cli -a ${REDIS_PASSWORD}`
+Traefik will route requests to the FastAPI service; customize `rules` and DNS accordingly.
 
-## Configuration
+---
 
-See [docs/configuration.md](docs/configuration.md) for details on environment variables and settings.
+## Usage
 
-## Database Management
+Endpoints are grouped under `/api/v1`:
 
-- **PgAdmin setup:** [docs/database.md](docs/database.md)
-- **Running Migrations:** [docs/database.md](docs/database.md)
+* **Authentication**: `/api/v1/auth/login`, `/api/v1/auth/register`
+* **Users**: `/api/v1/users/` CRUD and role management
+* **Preferences**: `/api/v1/preferences/` save and fetch user preferences
+* **Articles**: `/api/v1/articles/` list, retrieve, and recommend
+* **Admin**: `/api/v1/admin/` user-role and permission management
 
-## Development Workflow
-
-- The application code is auto-reloaded in development mode.
-- Logs are stored in the `logs/` directory.
-
-## Security Best Practices
-
-See [docs/security.md](docs/security.md) for security recommendations.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-```
-
-### **Additional Documentation Files**
-#### **docs/configuration.md**
-Contains detailed environment variable descriptions.
-
-#### **docs/database.md**
-Describes database management, migrations, and PgAdmin setup.
-
-#### **docs/security.md**
-Covers best practices for securing the API.
+Refer to the interactive Swagger UI at `/api/docs` for complete request/response schemas.
