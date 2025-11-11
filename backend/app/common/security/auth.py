@@ -47,7 +47,6 @@ def create_refresh_token(
     to_encode["type"] = "refresh"
     # JWTs are long strings, which increase Redis memory usage
     to_encode["jti"] = str(uuid.uuid4())
-    print("JTI", to_encode["jti"])
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
