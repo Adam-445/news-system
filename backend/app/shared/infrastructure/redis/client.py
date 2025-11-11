@@ -68,21 +68,26 @@ class RedisManager:
 
     @classmethod
     async def delete_cache(cls, pattern: str):
-        """Safely delete keys with matching pattern using redis.scan"""
+        """Delete cache keys matching a pattern using incremental SCAN.
+
+        Returns number of keys scheduled for deletion. Uses `unlink` for
+        non-blocking lazy deletion.
+        """
         redis = await cls.get_redis()
-        cursor = "0"
-        deleted_count = 0
+        cursor: int = 0
+        keys_to_delete: list[str] = []
 
-        # redis.scan instead of redis.keys to avoid blocking redis
-        while cursor != 0:
-            cursor, keys = await redis.scan(cursor=cursor, match=f"cache:{pattern}")
+        while True:
+            cursor, batch = await redis.scan(cursor=cursor, match=f"cache:{pattern}")
+            if batch:
+                keys_to_delete.extend(batch)
+            if cursor == 0:
+                break
 
-        if keys:
-            # Use redis.unlink instead of redis.delete to avoid blocking using lazy deletetion
-            await redis.unlink(*keys)
-            deleted_count = len(keys)
-
-        return deleted_count
+        if keys_to_delete:
+            # Non-blocking deletion
+            await redis.unlink(*keys_to_delete)
+        return len(keys_to_delete)
 
     @classmethod
     async def increment_counter(cls, key: str, amount: int = 1):
