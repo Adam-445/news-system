@@ -2,6 +2,7 @@
 # monkey.patch_all(ssl=False, aggressive=True, select=True)
 
 from celery import Celery
+
 from backend.app.common.config.settings import settings
 
 celery = Celery(__name__)
@@ -20,24 +21,24 @@ celery.conf.update(
     broker_pool_limit=64,  # Match Redis connection pool
     task_default_queue="default",
     task_queues={
-        'scraping_queue': {
-            'exchange': 'scraping',
-            'exchange_type': 'direct',
-            'routing_key': 'scraping'
+        "scraping_queue": {
+            "exchange": "scraping",
+            "exchange_type": "direct",
+            "routing_key": "scraping",
         },
-        'high_priority': {
-            'exchange': 'high_priority',
-            'exchange_type': 'direct',
-            'routing_key': 'high_priority'
-        }
+        "high_priority": {
+            "exchange": "high_priority",
+            "exchange_type": "direct",
+            "routing_key": "high_priority",
+        },
     },
     task_annotations={
-        'backend.app.tasks.scraping.scrape_articles_task': {
-            'rate_limit': '10/m',
-            'max_retries': 5,
-            'default_retry_delay': 30,
-            'priority': 5,
-            'queue': 'scraping_queue'
+        "backend.app.modules.articles.tasks.scraping.scrape_articles_task": {
+            "rate_limit": "10/m",
+            "max_retries": 5,
+            "default_retry_delay": 30,
+            "priority": 5,
+            "queue": "scraping_queue",
         }
-    }
+    },
 )
