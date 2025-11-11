@@ -1,7 +1,10 @@
 services:
   app:
-    image: adam424/news-analyzer:latest
+    build: .
+    image: news-analyzer:dev
     env_file: .env
+    ports:
+      - "8000:8000"
     networks:
       - backend
     depends_on:
